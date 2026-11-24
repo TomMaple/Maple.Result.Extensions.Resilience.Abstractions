@@ -219,7 +219,7 @@ public class RetryAfterUnitTests
         var seconds = retryAfter.GetRemainingSeconds(Clock);
 
         // Assert
-        seconds.ShouldBe(TimeSpan.MaxValue.Ticks / TimeSpan.TicksPerSecond + 1);
+        seconds.ShouldBe(922_337_203_685L);
     }
 
     [Fact]

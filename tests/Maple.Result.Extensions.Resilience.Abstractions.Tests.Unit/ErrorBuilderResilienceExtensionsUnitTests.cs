@@ -66,17 +66,33 @@ public class ErrorBuilderResilienceExtensionsUnitTests
     }
 
     [Fact]
-    public void WithRetryAfterDelay_MaxValue_StoresSecondsRoundedUp()
+    public void WithRetryAfterDelay_MaxValue_StoresLargestWholeSecondsOfTimeSpan()
     {
-        // Arrange
+        // Arrange (rounded up, TimeSpan.MaxValue would be one second more than a TimeSpan holds)
         var builder = CreateBuilder();
-        var expectedSeconds = TimeSpan.MaxValue.Ticks / TimeSpan.TicksPerSecond + 1;
 
         // Act
         builder.WithRetryAfter(TimeSpan.MaxValue);
 
         // Assert
-        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(expectedSeconds);
+        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(922_337_203_685L);
+    }
+
+    [Fact]
+    public void WithRetryAfterDelay_MaxValue_IsReadBack()
+    {
+        // Arrange
+        var error = CreateBuilder()
+            .WithRetryAfter(TimeSpan.MaxValue)
+            .Build();
+
+        // Act
+        var found = error.TryGetRetryAfter(out var retryAfter);
+
+        // Assert
+        found.ShouldBeTrue();
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(922_337_203_685));
     }
 
     [Fact]
@@ -471,7 +487,7 @@ public class ErrorBuilderResilienceExtensionsUnitTests
         exception.ShouldBeNull();
         var metadata = builder.Build().Metadata;
         metadata.Count.ShouldBe(1);
-        metadata.ContainsKey(ResilienceMetadataKeys.RetryAfterSeconds).ShouldBeTrue();
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(922_337_203_685L);
     }
 
     [Fact]
