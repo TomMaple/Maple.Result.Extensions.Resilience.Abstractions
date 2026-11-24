@@ -1,9 +1,8 @@
 # Enables auto-merge (squash) for Dependabot pull requests with NuGet minor and patch updates; GitHub merges them
 # once the required checks pass. NuGet majors and every GitHub Actions update wait for a manual review.
-# The library has no runtime dependencies yet. If it references Maple.Result (the only package that ci.yml allows), its
-# updates are merged as well (a decision of the maintainer): a minor or patch update raises the minimum version that the
-# package requires. Its commit is a "chore(deps)", which the release notes leave out; mention a raised minimum in the notes
-# of the next release by hand.
+# This includes the only runtime dependency of the library, Maple.Result (a decision of the maintainer): a minor or patch
+# update raises the minimum version that the package requires. Its commit is a "chore(deps)", which the release notes leave
+# out; mention a raised minimum in the notes of the next release by hand.
 # Needs "Allow auto-merge" and the main ruleset with required checks (without them the merge happens immediately).
 # A merge made with GITHUB_TOKEN does not trigger push workflows on main; they catch up on the next merge.
 
