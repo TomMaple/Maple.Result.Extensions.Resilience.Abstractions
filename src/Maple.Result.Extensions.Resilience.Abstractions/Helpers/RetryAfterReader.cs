@@ -10,6 +10,7 @@
 
 using System;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Maple.Results.Extensions.Resilience.Abstractions.Helpers;
 
@@ -29,14 +30,26 @@ internal static class RetryAfterReader
     /// <summary>The largest number of whole seconds that a <see cref="TimeSpan" /> holds.</summary>
     private const long MaxSeconds = long.MaxValue / TimeSpan.TicksPerSecond;
 
-    /// <summary>The shape of an offset after the date and time: <c>d</c> is an ASCII digit, any other character stands for itself.</summary>
-    private const string OffsetShape = "dd:dd";
-
     /// <summary>The format of a normalized RFC 3339 text without an offset.</summary>
     private const string Rfc3339Format = "yyyy-MM-dd'T'HH:mm:ss.fffffff";
 
-    /// <summary>The shape of the date and time of an RFC 3339 text: <c>d</c> is an ASCII digit, any other character stands for itself.</summary>
-    private const string Rfc3339Shape = "dddd-dd-ddTdd:dd:dd";
+    /// <summary>
+    ///     The shape of an RFC 3339 date and time (section 5.6): an upper-case <c>T</c>, any fraction of a second, and <c>Z</c>, a numeric offset or no
+    ///     offset.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>[0-9]</c> rather than <c>\d</c>, which matches the digits of other scripts too; <c>\A</c> and <c>\z</c> rather than <c>^</c> and
+    ///         <c>$</c>, which matches before a final line break too.
+    ///     </para>
+    ///     <para>
+    ///         A plain field rather than <c>[GeneratedRegex]</c>: the code coverage of CI counts the generated code, which the tests of this package do not
+    ///         exercise. Under Native AOT the pattern runs on the interpreter, which is fast enough for one short text per call.
+    ///     </para>
+    /// </remarks>
+    private static readonly Regex Rfc3339Shape = new(
+        @"\A(?<dateTime>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.(?<fraction>[0-9]+))?(?<offset>Z|[+-][0-9]{2}:[0-9]{2})?\z",
+        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
 
     /// <summary>The format of a normalized RFC 3339 text with a numeric offset.</summary>
     private const string Rfc3339WithOffsetFormat = "yyyy-MM-dd'T'HH:mm:ss.fffffffzzz";
@@ -151,26 +164,6 @@ internal static class RetryAfterReader
 
     #region helper methods
 
-    /// <summary>
-    ///     Whether the text has the shape: each <c>d</c> of the shape is an ASCII digit, and every other character is the same.
-    /// </summary>
-    /// <param name="text">The text; the callers pass exactly the length of the shape.</param>
-    /// <param name="shape">The shape.</param>
-    private static bool HasShape(ReadOnlySpan<char> text, string shape)
-    {
-        for (var i = 0; i < shape.Length; i++)
-        {
-            var matches = shape[i] == 'd'
-                ? char.IsAsciiDigit(text[i])
-                : text[i] == shape[i];
-
-            if (!matches)
-                return false;
-        }
-
-        return true;
-    }
-
     private static bool TryFromSeconds(long seconds, out TimeSpan delay)
     {
         if (seconds is < 0 or > MaxSeconds)
@@ -218,59 +211,41 @@ internal static class RetryAfterReader
     ///     Parses an RFC 3339 date and time (section 5.6) with an upper-case <c>T</c> and <c>Z</c>, any fraction of a second, and an optional offset.
     /// </summary>
     /// <remarks>
-    ///     The text is checked against the shape first, because the parse methods of .NET alone accept too much (e.g., other separators, a missing time
-    ///     or a culture-specific format). The parse then checks the ranges (e.g., the 30th of February, an offset beyond ±14 hours, or an instant outside
-    ///     the range of <see cref="DateTimeOffset" />) without throwing.
+    ///     The text is matched against <see cref="Rfc3339Shape" /> first, because the parse methods of .NET alone accept too much (e.g., other
+    ///     separators, a missing time or a culture-specific format). The parse then checks the ranges (e.g., the 30th of February, an offset beyond
+    ///     ±14 hours, or an instant outside the range of <see cref="DateTimeOffset" />) without throwing.
     /// </remarks>
     private static bool TryParseRfc3339(string text, out DateTimeOffset instant, out bool hasOffset)
     {
-        instant = default;
-        hasOffset = false;
-
-        var length = Rfc3339Shape.Length;
-        if (text.Length < length || !HasShape(text.AsSpan(0, length), Rfc3339Shape))
-            return false;
-
-        var dateTime = text[..length];
-
-        // An optional fraction of one digit or more.
-        var fraction = string.Empty;
-        if (length < text.Length && text[length] == '.')
+        var match = Rfc3339Shape.Match(text);
+        if (!match.Success)
         {
-            var fractionStart = length + 1;
-            var fractionEnd = fractionStart;
-            while (fractionEnd < text.Length && char.IsAsciiDigit(text[fractionEnd]))
-                fractionEnd++;
+            instant = default;
+            hasOffset = false;
 
-            if (fractionEnd == fractionStart)
-                return false;
-
-            fraction = text[fractionStart..fractionEnd];
-            length = fractionEnd;
+            return false;
         }
+
+        var dateTime = match.Groups["dateTime"].Value;
+        var fraction = match.Groups["fraction"].Value;
+        var offset = match.Groups["offset"];
 
         // DateTimeOffset holds seven fraction digits: a longer fraction is truncated, a shorter one is padded.
         var fractionText = fraction.Length > FractionDigits
             ? fraction[..FractionDigits]
             : fraction.PadRight(FractionDigits, '0');
 
-        // An optional offset, the rest of the text: Z, or a sign and hh:mm.
-        var offset = text.AsSpan(length);
-        if (offset.IsEmpty)
+        hasOffset = offset.Success;
+        if (!hasOffset)
         {
             var normalized = $"{dateTime}.{fractionText}";
 
             return DateTimeOffset.TryParseExact(normalized, Rfc3339Format, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out instant);
         }
 
-        var isNumericOffset = offset.Length == OffsetShape.Length + 1 && offset[0] is '+' or '-' && HasShape(offset[1..], OffsetShape);
-        if (offset is not "Z" && !isNumericOffset)
-            return false;
-
-        hasOffset = true;
-        var offsetText = isNumericOffset
-            ? offset.ToString()
-            : "+00:00";
+        var offsetText = offset.Value == "Z"
+            ? "+00:00"
+            : offset.Value;
 
         var normalizedWithOffset = $"{dateTime}.{fractionText}{offsetText}";
 
