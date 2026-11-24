@@ -10,6 +10,7 @@
 
 using System;
 using System.Globalization;
+using System.Linq;
 
 namespace Maple.Results.Extensions.Resilience.Abstractions;
 
@@ -97,11 +98,9 @@ public static class ErrorBuilderResilienceExtensions
     private static void RemoveRetryAfterKeys(ErrorBuilder builder)
     {
         var snapshot = builder.Build();
-        foreach (var key in snapshot.Metadata.Keys)
-        {
-            if (IsRetryAfterKey(key))
-                builder.WithoutMetadata(key);
-        }
+        var retryAfterKeys = snapshot.Metadata.Keys.Where(IsRetryAfterKey);
+        foreach (var key in retryAfterKeys)
+            builder.WithoutMetadata(key);
     }
 
     /// <summary>
