@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Maple.Result.Extensions.Resilience.Abstractions</AssemblyName>
+    <RootNamespace>Maple.Results.Extensions.Resilience.Abstractions</RootNamespace>
+
+    <!-- Marks the assembly as trimmable and turns on the trim, AOT and single-file analyzers. -->
+    <IsAotCompatible>true</IsAotCompatible>
+
+    <PackageId>Maple.Result.Extensions.Resilience.Abstractions</PackageId>
+    <Title>Maple.Result.Extensions.Resilience.Abstractions — abstractions for the resilience extensions of Maple.Result</Title>
+    <Description>Abstractions for the resilience extensions of Maple.Result: the contracts shared by the resilience packages.</Description>
+    <Authors>Tom Maple</Authors>
+    <Copyright>Copyright (c) Tom Maple</Copyright>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageTags>result;result-pattern;error-handling;resilience;abstractions;aot</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/releases</PackageReleaseNotes>
+
+    <!-- Checks the package when it is packed. The baseline (PackageValidationBaselineVersion) is set once the first
+         version that is not a pre-release is on nuget.org. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
+
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <PackageProjectUrl>https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Maple.Result.Extensions.Resilience.Abstractions.Tests.Unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\.resources\icon.png" Pack="true" PackagePath="" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <!-- The package README for nuget.org (absolute links, no GitHub alerts); the README.md of the repository is for GitHub. -->
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>
