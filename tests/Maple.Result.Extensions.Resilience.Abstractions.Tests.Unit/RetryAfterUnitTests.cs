@@ -151,6 +151,7 @@ public class RetryAfterUnitTests
         // Arrange (a delay of 30 s, received 20 s ago)
         var error = Error.Unavailable(TypeUri, Title)
             .WithRetryAfter(TimeSpan.FromSeconds(30), Now.AddSeconds(-20));
+
         error.TryGetRetryAfter(out var retryAfter, Clock).ShouldBeTrue();
 
         // Act
@@ -210,7 +211,7 @@ public class RetryAfterUnitTests
     }
 
     [Fact]
-    public void GetRemainingSeconds_MaxDelay_DoesNotOverflow()
+    public void GetRemainingSeconds_MaxDelay_ReturnsLargestWholeSecondsOfTimeSpan()
     {
         // Arrange
         var retryAfter = new RetryAfter(TimeSpan.MaxValue, null);
