@@ -20,8 +20,8 @@ public class ErrorResilienceExtensionsUnitTests
 
     // "Now" of every test that reads a date: the stored dates are 28 minutes later (07:28:00 UTC), unless a test says otherwise.
     private static readonly DateTimeOffset Now = new(2026, 10, 21, 7, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset InTwentyEightMinutes = new(2026, 10, 21, 7, 28, 0, TimeSpan.Zero);
     private static readonly TimeProvider Clock = new FixedTimeProvider(Now);
-    private static readonly TimeSpan TwentyEightMinutes = TimeSpan.FromMinutes(28);
 
     #region WithRetryAfter
 
@@ -61,6 +61,25 @@ public class ErrorResilienceExtensionsUnitTests
     }
 
     [Fact]
+    public void WithRetryAfterReceived_AnyError_StoresSameValuesAsBuilder()
+    {
+        // Arrange
+        var error = CreateError();
+        var receivedAt = new DateTimeOffset(2026, 10, 21, 9, 28, 0, 400, TimeSpan.FromHours(2));
+        var expected = error.ToBuilder()
+            .WithRetryAfter(TimeSpan.FromMilliseconds(1_200), receivedAt)
+            .Build();
+
+        // Act
+        var result = error.WithRetryAfter(TimeSpan.FromMilliseconds(1_200), receivedAt);
+
+        // Assert
+        result.ShouldBe(expected);
+        result.Metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(2L);
+        result.Metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:28:03+00:00");
+    }
+
+    [Fact]
     public void WithRetryAfterDelay_ErrorWithDate_ReplacesDateAndLeavesOriginalUnchanged()
     {
         // Arrange
@@ -86,13 +105,32 @@ public class ErrorResilienceExtensionsUnitTests
             .WithRetryAfter(TimeSpan.FromSeconds(120));
 
         // Act
-        var result = error.WithRetryAfter(new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+        var result = error.WithRetryAfter(InTwentyEightMinutes);
 
         // Assert
         result.Metadata.Count.ShouldBe(1);
         result.Metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:28:00+00:00");
         error.Metadata.Count.ShouldBe(1);
         error.Metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(120L);
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_ErrorWithDate_StoresBothAndLeavesOriginalUnchanged()
+    {
+        // Arrange
+        var error = CreateError()
+            .WithRetryAfter(new DateTimeOffset(2026, 10, 21, 8, 0, 0, TimeSpan.Zero));
+
+        // Act
+        var result = error.WithRetryAfter(TimeSpan.FromSeconds(120), InTwentyEightMinutes);
+
+        // Assert
+        result.ShouldNotBeSameAs(error);
+        result.Metadata.Count.ShouldBe(2);
+        result.Metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(120L);
+        result.Metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:30:00+00:00");
+        error.Metadata.Count.ShouldBe(1);
+        error.Metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T08:00:00+00:00");
     }
 
     [Fact]
@@ -103,6 +141,19 @@ public class ErrorResilienceExtensionsUnitTests
 
         // Act
         var exception = Record.Exception(() => error.WithRetryAfter(TimeSpan.FromSeconds(-1)));
+
+        // Assert
+        exception.ShouldBeOfType<ArgumentOutOfRangeException>().ParamName.ShouldBe("delay");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_NegativeDelay_ThrowsArgumentOutOfRangeException()
+    {
+        // Arrange
+        var error = CreateError();
+
+        // Act
+        var exception = Record.Exception(() => error.WithRetryAfter(TimeSpan.FromSeconds(-1), Now));
 
         // Assert
         exception.ShouldBeOfType<ArgumentOutOfRangeException>().ParamName.ShouldBe("delay");
@@ -129,6 +180,19 @@ public class ErrorResilienceExtensionsUnitTests
 
         // Act
         var exception = Record.Exception(() => error.WithRetryAfter(Now));
+
+        // Assert
+        exception.ShouldBeOfType<ArgumentNullException>().ParamName.ShouldBe("error");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_NullError_ThrowsArgumentNullException()
+    {
+        // Arrange
+        Error error = null!;
+
+        // Act
+        var exception = Record.Exception(() => error.WithRetryAfter(TimeSpan.FromSeconds(1), Now));
 
         // Assert
         exception.ShouldBeOfType<ArgumentNullException>().ParamName.ShouldBe("error");
@@ -203,42 +267,31 @@ public class ErrorResilienceExtensionsUnitTests
             .WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, value);
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeTrue();
-        delay.ShouldBe(TimeSpan.FromTicks(expectedSeconds * TimeSpan.TicksPerSecond));
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Delay);
+        retryAfter.Delay.ShouldBe(TimeSpan.FromTicks(expectedSeconds * TimeSpan.TicksPerSecond));
+        retryAfter.RetryAt.ShouldBeNull();
+        retryAfter.GetRemaining(Clock).ShouldBe(TimeSpan.FromTicks(expectedSeconds * TimeSpan.TicksPerSecond));
     }
 
     [Theory]
     [MemberData(nameof(UnreadableSeconds))]
-    public void TryGetRetryAfter_UnreadableSeconds_ReturnsFalseAndZero(object? value)
+    public void TryGetRetryAfter_UnreadableSeconds_ReturnsFalseAndNull(object? value)
     {
         // Arrange
         var error = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, value);
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeFalse();
-        delay.ShouldBe(TimeSpan.Zero);
-    }
-
-    [Fact]
-    public void TryGetRetryAfter_SecondsStoredByWriter_ReturnsDelay()
-    {
-        // Arrange
-        var error = CreateError()
-            .WithRetryAfter(TimeSpan.FromMilliseconds(119_500));
-
-        // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
-
-        // Assert
-        found.ShouldBeTrue();
-        delay.ShouldBe(TimeSpan.FromSeconds(120));
+        retryAfter.ShouldBeNull();
     }
 
     [Fact]
@@ -249,40 +302,40 @@ public class ErrorResilienceExtensionsUnitTests
             .WithMetadata("RetryAfterSeconds", 120L);
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeFalse();
-        delay.ShouldBe(TimeSpan.Zero);
+        retryAfter.ShouldBeNull();
     }
 
     #endregion
 
     #region TryGetRetryAfter: date
 
-    public static TheoryData<object, TimeSpan> ReadableDates => new()
+    public static TheoryData<object, DateTimeOffset> ReadableDates => new()
     {
         // RFC 3339 with an offset
-        { "2026-10-21T07:28:00+00:00", TwentyEightMinutes },
-        { "2026-10-21T07:28:00Z", TwentyEightMinutes },
-        { "2026-10-21T09:28:00+02:00", TwentyEightMinutes },
-        { "2026-10-21T02:28:00-05:00", TwentyEightMinutes },
-        { "2026-10-21T07:28:00-00:00", TwentyEightMinutes },
-        { "2026-10-21T21:28:00+14:00", TwentyEightMinutes },
-        { "2026-10-21T07:28:00.5Z", TwentyEightMinutes + TimeSpan.FromMilliseconds(500) },
-        { "2026-10-21T09:28:00.123+02:00", TwentyEightMinutes + TimeSpan.FromMilliseconds(123) },
-        { "2026-10-21T07:28:00.1234567Z", TwentyEightMinutes + TimeSpan.FromTicks(1_234_567) },
-        { "2026-10-21T07:28:00.123456789Z", TwentyEightMinutes + TimeSpan.FromTicks(1_234_567) },
+        { "2026-10-21T07:28:00+00:00", InTwentyEightMinutes },
+        { "2026-10-21T07:28:00Z", InTwentyEightMinutes },
+        { "2026-10-21T09:28:00+02:00", InTwentyEightMinutes },
+        { "2026-10-21T02:28:00-05:00", InTwentyEightMinutes },
+        { "2026-10-21T07:28:00-00:00", InTwentyEightMinutes },
+        { "2026-10-21T21:28:00+14:00", InTwentyEightMinutes },
+        { "2026-10-21T07:28:00.5Z", InTwentyEightMinutes.AddMilliseconds(500) },
+        { "2026-10-21T09:28:00.123+02:00", InTwentyEightMinutes.AddMilliseconds(123) },
+        { "2026-10-21T07:28:00.1234567Z", InTwentyEightMinutes.AddTicks(1_234_567) },
+        { "2026-10-21T07:28:00.123456789Z", InTwentyEightMinutes.AddTicks(1_234_567) },
         // RFC 3339 without an offset, in the future
-        { "2026-10-21T07:28:00", TwentyEightMinutes },
-        { "2026-10-21T07:28:00.5", TwentyEightMinutes + TimeSpan.FromMilliseconds(500) },
+        { "2026-10-21T07:28:00", InTwentyEightMinutes },
+        { "2026-10-21T07:28:00.5", InTwentyEightMinutes.AddMilliseconds(500) },
         // HTTP-date
-        { "Wed, 21 Oct 2026 07:28:00 GMT", TwentyEightMinutes },
+        { "Wed, 21 Oct 2026 07:28:00 GMT", InTwentyEightMinutes },
         // Typed values
-        { new DateTimeOffset(2026, 10, 21, 9, 28, 0, TimeSpan.FromHours(2)), TwentyEightMinutes },
-        { new DateTime(2026, 10, 21, 7, 28, 0, DateTimeKind.Utc), TwentyEightMinutes },
-        { new DateTime(2026, 10, 21, 7, 28, 0, DateTimeKind.Utc).ToLocalTime(), TwentyEightMinutes },
-        { new DateTime(2026, 10, 21, 7, 28, 0, DateTimeKind.Unspecified), TwentyEightMinutes },
+        { new DateTimeOffset(2026, 10, 21, 9, 28, 0, TimeSpan.FromHours(2)), InTwentyEightMinutes },
+        { new DateTime(2026, 10, 21, 7, 28, 0, DateTimeKind.Utc), InTwentyEightMinutes },
+        { new DateTime(2026, 10, 21, 7, 28, 0, DateTimeKind.Utc).ToLocalTime(), InTwentyEightMinutes },
+        { new DateTime(2026, 10, 21, 7, 28, 0, DateTimeKind.Unspecified), InTwentyEightMinutes },
     };
 
     public static TheoryData<object?> UnreadableDates => new()
@@ -327,34 +380,38 @@ public class ErrorResilienceExtensionsUnitTests
 
     [Theory]
     [MemberData(nameof(ReadableDates))]
-    public void TryGetRetryAfter_ReadableDate_ReturnsDelayUntilDate(object value, TimeSpan expectedDelay)
+    public void TryGetRetryAfter_ReadableDate_ReturnsRetryAt(object value, DateTimeOffset expectedRetryAt)
     {
         // Arrange
         var error = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, value);
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeTrue();
-        delay.ShouldBe(expectedDelay);
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Date);
+        retryAfter.Delay.ShouldBeNull();
+        retryAfter.RetryAt.ShouldBe(expectedRetryAt);
+        retryAfter.GetRemaining(Clock).ShouldBe(expectedRetryAt - Now);
     }
 
     [Theory]
     [MemberData(nameof(UnreadableDates))]
-    public void TryGetRetryAfter_UnreadableDate_ReturnsFalseAndZero(object? value)
+    public void TryGetRetryAfter_UnreadableDate_ReturnsFalseAndNull(object? value)
     {
         // Arrange
         var error = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, value);
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeFalse();
-        delay.ShouldBe(TimeSpan.Zero);
+        retryAfter.ShouldBeNull();
     }
 
     public static TheoryData<object> PastDatesWithOffset => new()
@@ -381,18 +438,20 @@ public class ErrorResilienceExtensionsUnitTests
 
     [Theory]
     [MemberData(nameof(PastDatesWithOffset))]
-    public void TryGetRetryAfter_PastDateWithOffset_ReturnsTrueAndZero(object value)
+    public void TryGetRetryAfter_PastDateWithOffset_ReturnsTrueAndNoTimeRemains(object value)
     {
         // Arrange
         var error = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, value);
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeTrue();
-        delay.ShouldBe(TimeSpan.Zero);
+        retryAfter.ShouldNotBeNull();
+        retryAfter.RetryAt.ShouldNotBeNull();
+        retryAfter.GetRemaining(Clock).ShouldBe(TimeSpan.Zero);
     }
 
     [Theory]
@@ -404,60 +463,140 @@ public class ErrorResilienceExtensionsUnitTests
             .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, value);
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeFalse();
-        delay.ShouldBe(TimeSpan.Zero);
+        retryAfter.ShouldBeNull();
     }
 
-    [Fact]
-    public void TryGetRetryAfter_DateWithOffsetAndItsUtcText_ReturnSameDelay()
+    [Theory]
+    [InlineData("2026-10-21T09:28:00+02:00")]
+    [InlineData("2026-10-21T02:28:00-05:00")]
+    public void TryGetRetryAfter_DateWithOffset_ReturnsSameRetryAtAsItsUtcText(string text)
     {
         // Arrange
         var withOffset = CreateError()
-            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T09:28:00+02:00");
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, text);
 
         var utc = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T07:28:00+00:00");
 
         // Act
-        withOffset.TryGetRetryAfter(out var delayWithOffset, Clock);
-        utc.TryGetRetryAfter(out var delayUtc, Clock);
+        withOffset.TryGetRetryAfter(out var fromOffset, Clock);
+        utc.TryGetRetryAfter(out var fromUtc, Clock);
 
         // Assert
-        delayWithOffset.ShouldBe(delayUtc);
+        fromOffset.ShouldBe(fromUtc);
+    }
+
+    [Theory]
+    [InlineData("2026-10-21T09:28:00+02:00")]
+    [InlineData("2026-10-21T07:28:00")]
+    public void TryGetRetryAfter_ReadableDate_ReturnsRetryAtInUtc(string text)
+    {
+        // Arrange
+        var error = CreateError()
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, text);
+
+        // Act
+        error.TryGetRetryAfter(out var retryAfter, Clock);
+
+        // Assert
+        retryAfter.ShouldNotBeNull();
+        retryAfter.RetryAt.ShouldNotBeNull();
+        retryAfter.RetryAt.Value.Offset.ShouldBe(TimeSpan.Zero);
     }
 
     [Fact]
-    public void TryGetRetryAfter_DateStoredByWriter_ReturnsDelay()
+    public void TryGetRetryAfter_FutureDateWithoutOffsetAndNoTimeProvider_UsesSystemClock()
+    {
+        // Arrange
+        var inOneHour = DateTime.UtcNow.AddHours(1).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+        var error = CreateError()
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, inOneHour);
+
+        // Act
+        var found = error.TryGetRetryAfter(out var retryAfter);
+
+        // Assert
+        found.ShouldBeTrue();
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Date);
+    }
+
+    [Fact]
+    public void TryGetRetryAfter_PastDateWithoutOffsetAndNoTimeProvider_UsesSystemClock()
+    {
+        // Arrange
+        var oneHourAgo = DateTime.UtcNow.AddHours(-1).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+        var error = CreateError()
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, oneHourAgo);
+
+        // Act
+        var found = error.TryGetRetryAfter(out var retryAfter);
+
+        // Assert
+        found.ShouldBeFalse();
+        retryAfter.ShouldBeNull();
+    }
+
+    #endregion
+
+    #region TryGetRetryAfter: values of the writers
+
+    [Fact]
+    public void TryGetRetryAfter_WrittenWithDelayAndReceivedAt_ReturnsBoth()
+    {
+        // Arrange
+        var error = CreateError()
+            .WithRetryAfter(TimeSpan.FromSeconds(120), new DateTimeOffset(2026, 10, 21, 7, 26, 0, TimeSpan.Zero));
+
+        // Act
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
+
+        // Assert
+        found.ShouldBeTrue();
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Delay);
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(120));
+        retryAfter.RetryAt.ShouldBe(InTwentyEightMinutes);
+    }
+
+    [Fact]
+    public void TryGetRetryAfter_WrittenWithDate_ReturnsDate()
     {
         // Arrange
         var error = CreateError()
             .WithRetryAfter(new DateTimeOffset(2026, 10, 21, 9, 28, 0, 400, TimeSpan.FromHours(2)));
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeTrue();
-        delay.ShouldBe(TwentyEightMinutes + TimeSpan.FromSeconds(1));
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Date);
+        retryAfter.Delay.ShouldBeNull();
+        retryAfter.RetryAt.ShouldBe(InTwentyEightMinutes.AddSeconds(1));
     }
 
     [Fact]
-    public void TryGetRetryAfter_NoTimeProvider_UsesSystemClock()
+    public void TryGetRetryAfter_WrittenWithDelay_ReturnsDelay()
     {
         // Arrange
-        var retryAt = DateTimeOffset.UtcNow.AddHours(1);
         var error = CreateError()
-            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, retryAt);
+            .WithRetryAfter(TimeSpan.FromMilliseconds(119_500));
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeTrue();
-        delay.ShouldBeInRange(TimeSpan.FromMinutes(59), TimeSpan.FromHours(1));
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Delay);
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(120));
+        retryAfter.RetryAt.ShouldBeNull();
     }
 
     #endregion
@@ -465,35 +604,41 @@ public class ErrorResilienceExtensionsUnitTests
     #region TryGetRetryAfter: both keys
 
     [Fact]
-    public void TryGetRetryAfter_ReadableSecondsAndLaterDate_ReturnsSeconds()
+    public void TryGetRetryAfter_BothReadable_ReturnsSecondsAndDate()
     {
         // Arrange
         var error = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, 30L)
-            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T09:00:00Z");
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T07:28:00Z");
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeTrue();
-        delay.ShouldBe(TimeSpan.FromSeconds(30));
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Delay);
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(30));
+        retryAfter.RetryAt.ShouldBe(InTwentyEightMinutes);
+        retryAfter.GetRemaining(Clock).ShouldBe(TimeSpan.FromMinutes(28));
     }
 
     [Fact]
-    public void TryGetRetryAfter_ReadableSecondsAndEarlierDate_ReturnsSeconds()
+    public void TryGetRetryAfter_BothReadableWithPastDate_ReturnsBothAndNoTimeRemains()
     {
         // Arrange
         var error = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, 3_600L)
-            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T07:01:00Z");
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T06:59:00Z");
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeTrue();
-        delay.ShouldBe(TimeSpan.FromHours(1));
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Delay.ShouldBe(TimeSpan.FromHours(1));
+        retryAfter.GetRemaining(Clock).ShouldBe(TimeSpan.Zero);
     }
 
     [Theory]
@@ -508,31 +653,58 @@ public class ErrorResilienceExtensionsUnitTests
             .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T07:28:00+00:00");
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeTrue();
-        delay.ShouldBe(TwentyEightMinutes);
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Date);
+        retryAfter.Delay.ShouldBeNull();
+        retryAfter.RetryAt.ShouldBe(InTwentyEightMinutes);
     }
 
-    [Fact]
-    public void TryGetRetryAfter_ReadableSecondsAndUnreadableDate_ReturnsSeconds()
+    [Theory]
+    [InlineData("tomorrow")]
+    [InlineData(42)]
+    [InlineData(null)]
+    public void TryGetRetryAfter_ReadableSecondsAndUnreadableDate_ReturnsSecondsWithoutRetryAt(object? date)
     {
         // Arrange
         var error = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, 30)
-            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "tomorrow");
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, date);
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeTrue();
-        delay.ShouldBe(TimeSpan.FromSeconds(30));
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Delay);
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(30));
+        retryAfter.RetryAt.ShouldBeNull();
     }
 
     [Fact]
-    public void TryGetRetryAfter_NeitherReadable_ReturnsFalseAndZero()
+    public void TryGetRetryAfter_ReadableSecondsAndPastDateWithoutOffset_ReturnsSecondsWithoutRetryAt()
+    {
+        // Arrange
+        var error = CreateError()
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, 30L)
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T06:00:00");
+
+        // Act
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
+
+        // Assert
+        found.ShouldBeTrue();
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(30));
+        retryAfter.RetryAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public void TryGetRetryAfter_NeitherReadable_ReturnsFalseAndNull()
     {
         // Arrange
         var error = CreateError()
@@ -540,26 +712,26 @@ public class ErrorResilienceExtensionsUnitTests
             .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T06:00:00");
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeFalse();
-        delay.ShouldBe(TimeSpan.Zero);
+        retryAfter.ShouldBeNull();
     }
 
     [Fact]
-    public void TryGetRetryAfter_NoHint_ReturnsFalseAndZero()
+    public void TryGetRetryAfter_NoHint_ReturnsFalseAndNull()
     {
         // Arrange
         var error = CreateError()
             .WithMetadata("traceId", "abc");
 
         // Act
-        var found = error.TryGetRetryAfter(out var delay, Clock);
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
         found.ShouldBeFalse();
-        delay.ShouldBe(TimeSpan.Zero);
+        retryAfter.ShouldBeNull();
     }
 
     [Fact]

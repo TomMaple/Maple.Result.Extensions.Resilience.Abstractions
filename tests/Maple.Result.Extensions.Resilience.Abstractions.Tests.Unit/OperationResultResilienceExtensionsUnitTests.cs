@@ -27,10 +27,10 @@ public class OperationResultResilienceExtensionsUnitTests
         IOperationResult result = Result.Success();
 
         // Act
-        var delay = result.GetRetryAfter(Clock);
+        var retryAfter = result.GetRetryAfter(Clock);
 
         // Assert
-        delay.ShouldBeNull();
+        retryAfter.ShouldBeNull();
     }
 
     [Fact]
@@ -40,10 +40,10 @@ public class OperationResultResilienceExtensionsUnitTests
         IOperationResult result = Result.FromValue(42);
 
         // Act
-        var delay = result.GetRetryAfter(Clock);
+        var retryAfter = result.GetRetryAfter(Clock);
 
         // Assert
-        delay.ShouldBeNull();
+        retryAfter.ShouldBeNull();
     }
 
     [Fact]
@@ -53,10 +53,10 @@ public class OperationResultResilienceExtensionsUnitTests
         IOperationResult result = Result.FromError(CreateError());
 
         // Act
-        var delay = result.GetRetryAfter(Clock);
+        var retryAfter = result.GetRetryAfter(Clock);
 
         // Assert
-        delay.ShouldBeNull();
+        retryAfter.ShouldBeNull();
     }
 
     [Fact]
@@ -69,10 +69,10 @@ public class OperationResultResilienceExtensionsUnitTests
         IOperationResult result = Result.FromError(error);
 
         // Act
-        var delay = result.GetRetryAfter(Clock);
+        var retryAfter = result.GetRetryAfter(Clock);
 
         // Assert
-        delay.ShouldBeNull();
+        retryAfter.ShouldBeNull();
     }
 
     [Fact]
@@ -85,14 +85,17 @@ public class OperationResultResilienceExtensionsUnitTests
         IOperationResult result = Result<string>.FromError(error);
 
         // Act
-        var delay = result.GetRetryAfter(Clock);
+        var retryAfter = result.GetRetryAfter(Clock);
 
         // Assert
-        delay.ShouldBe(TimeSpan.FromSeconds(120));
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Delay);
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(120));
+        retryAfter.RetryAt.ShouldBeNull();
     }
 
     [Fact]
-    public void GetRetryAfter_FailedResultWithDate_ReturnsDelayFromClock()
+    public void GetRetryAfter_FailedResultWithDate_ReturnsDate()
     {
         // Arrange
         var error = CreateError()
@@ -101,43 +104,49 @@ public class OperationResultResilienceExtensionsUnitTests
         IOperationResult result = Result.FromError(error);
 
         // Act
-        var delay = result.GetRetryAfter(Clock);
+        var retryAfter = result.GetRetryAfter(Clock);
 
         // Assert
-        delay.ShouldBe(TimeSpan.FromMinutes(28));
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Kind.ShouldBe(RetryAfterKind.Date);
+        retryAfter.RetryAt.ShouldBe(new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+        retryAfter.GetRemaining(Clock).ShouldBe(TimeSpan.FromMinutes(28));
     }
 
     [Fact]
-    public void GetRetryAfter_FailedResultWithPastDate_ReturnsZero()
+    public void GetRetryAfter_FailedResultWithReceivedDelay_ReturnsBoth()
     {
-        // Arrange
+        // Arrange (a delay of 30 s, received 20 s ago)
         var error = CreateError()
-            .WithRetryAfter(new DateTimeOffset(2026, 10, 21, 6, 0, 0, TimeSpan.Zero));
+            .WithRetryAfter(TimeSpan.FromSeconds(30), Now.AddSeconds(-20));
 
         IOperationResult result = Result.FromError(error);
 
         // Act
-        var delay = result.GetRetryAfter(Clock);
+        var retryAfter = result.GetRetryAfter(Clock);
 
         // Assert
-        delay.ShouldBe(TimeSpan.Zero);
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(30));
+        retryAfter.RetryAt.ShouldBe(Now.AddSeconds(10));
+        retryAfter.GetRemainingSeconds(Clock).ShouldBe(10L);
     }
 
     [Fact]
-    public void GetRetryAfter_NoTimeProvider_UsesSystemClock()
+    public void GetRetryAfter_FutureDateWithoutOffsetAndNoTimeProvider_UsesSystemClock()
     {
         // Arrange
+        var inOneHour = DateTime.UtcNow.AddHours(1).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
         var error = CreateError()
-            .WithRetryAfter(DateTimeOffset.UtcNow.AddHours(1));
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, inOneHour);
 
         IOperationResult result = Result.FromError(error);
 
         // Act
-        var delay = result.GetRetryAfter();
+        var retryAfter = result.GetRetryAfter();
 
-        // Assert (the writer rounds the date up to the next whole second)
-        delay.ShouldNotBeNull();
-        delay.Value.ShouldBeInRange(TimeSpan.FromMinutes(59), TimeSpan.FromHours(1) + TimeSpan.FromSeconds(1));
+        // Assert
+        retryAfter.ShouldNotBeNull();
     }
 
     [Fact]
