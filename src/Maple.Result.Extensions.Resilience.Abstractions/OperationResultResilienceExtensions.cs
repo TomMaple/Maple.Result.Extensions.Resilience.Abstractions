@@ -19,28 +19,30 @@ namespace Maple.Results.Extensions.Resilience.Abstractions;
 public static class OperationResultResilienceExtensions
 {
     /// <summary>
-    ///     Returns the delay of the retry hint of a failed result.
+    ///     Returns the retry hint of a failed result.
     /// </summary>
     /// <param name="result">The result.</param>
     /// <param name="timeProvider">
-    ///     The clock that gives “now” for a date (<see cref="TimeProvider.GetUtcNow" />); <see langword="null" /> means <see cref="TimeProvider.System" />.
+    ///     The clock for a date without an offset, which is readable only while it is in the future (<see cref="TimeProvider.GetUtcNow" />);
+    ///     <see langword="null" /> means <see cref="TimeProvider.System" />.
     /// </param>
     /// <returns>
-    ///     The delay, zero or more; <see langword="null" /> for a successful result, and for a failed one without a readable hint.
+    ///     The hint; <see langword="null" /> for a successful result, and for a failed one without a readable hint. The time that is left is
+    ///     <see cref="RetryAfter.GetRemaining" />.
     /// </returns>
     /// <remarks>
     ///     The hint is read as <see cref="ErrorResilienceExtensions.TryGetRetryAfter" /> reads it.
     /// </remarks>
     /// <exception cref="ArgumentNullException">If the <paramref name="result" /> is <see langword="null" />.</exception>
-    public static TimeSpan? GetRetryAfter(this IOperationResult result, TimeProvider? timeProvider = null)
+    public static RetryAfter? GetRetryAfter(this IOperationResult result, TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(result);
 
         if (!result.TryGetError(out var error))
             return null;
 
-        return error.TryGetRetryAfter(out var delay, timeProvider)
-            ? delay
+        return error.TryGetRetryAfter(out var retryAfter, timeProvider)
+            ? retryAfter
             : null;
     }
 }
