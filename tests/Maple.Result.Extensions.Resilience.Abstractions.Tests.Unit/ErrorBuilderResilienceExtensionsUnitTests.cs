@@ -402,6 +402,10 @@ public class ErrorBuilderResilienceExtensionsUnitTests
 
     #endregion
 
+    #region helper methods
+
     private static ErrorBuilder CreateBuilder()
         => ErrorBuilder.Unavailable(TypeUri, Title);
+
+    #endregion
 }

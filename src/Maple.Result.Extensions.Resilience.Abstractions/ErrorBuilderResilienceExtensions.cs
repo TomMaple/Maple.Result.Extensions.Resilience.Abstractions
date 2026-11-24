@@ -19,7 +19,11 @@ namespace Maple.Results.Extensions.Resilience.Abstractions;
 /// </summary>
 public static class ErrorBuilderResilienceExtensions
 {
+    #region consts
+
     private const string RetryAfterDateFormat = "yyyy-MM-dd'T'HH:mm:sszzz";
+
+    #endregion
 
     /// <summary>
     ///     Stores the delay before the operation is retried, in whole seconds, under <see cref="ResilienceMetadataKeys.RetryAfterSeconds" />, and removes
@@ -83,6 +87,8 @@ public static class ErrorBuilderResilienceExtensions
         return builder.WithMetadata(ResilienceMetadataKeys.RetryAfterDate, text);
     }
 
+    #region helper methods
+
     private static bool IsRetryAfterKey(string key)
         => string.Equals(key, ResilienceMetadataKeys.RetryAfterSeconds, StringComparison.OrdinalIgnoreCase)
            || string.Equals(key, ResilienceMetadataKeys.RetryAfterDate, StringComparison.OrdinalIgnoreCase);
@@ -120,4 +126,6 @@ public static class ErrorBuilderResilienceExtensions
             ? value.AddTicks(ticksToNextSecond)
             : value.AddTicks(-fractionTicks);
     }
+
+    #endregion
 }
