@@ -47,6 +47,11 @@
         "resolved": "4.4.0",
         "contentHash": "gwJEfIGS7FhykvtZoscwXj/XwW+mJY6UbAZk+qtLKFUGWC95kfKXnj8VkxsZQnWBxJemM/q664rGLN5nf+OHZw=="
       },
+      "Maple.Result": {
+        "type": "Transitive",
+        "resolved": "3.0.0-rc.2",
+        "contentHash": "Wbs5OtLooSZOwfCWqGDRKXw/W8bSvlpyLZ6tbWObKHACwRaVkHP21LFmUlsf5yujRqKFKffZlPNcbLW9GX682g=="
+      },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",
         "resolved": "2.23.0",
@@ -194,7 +199,10 @@
         }
       },
       "maple.result.extensions.resilience.abstractions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Maple.Result": "[3.0.0-rc.2, )"
+        }
       }
     }
   }

@@ -30,8 +30,8 @@ env:
   # The version that the CI packages count towards until the first v* tag exists (afterwards, the tags and the
   # conventional commits give it).
   FIRST_VERSION: 3.0.0
-  # The only packages that the library may reference, directly or transitively (#1): none yet, at most Maple.Result.
-  # The packages that the SDK adds itself (e.g., Microsoft.NET.ILLink.Tasks) are not counted.
+  # The only packages that the library may reference, directly or transitively (#14); the packages that the SDK adds
+  # itself (e.g., Microsoft.NET.ILLink.Tasks) are not counted.
   ALLOWED_PACKAGES: Maple.Result
 
 permissions: {}

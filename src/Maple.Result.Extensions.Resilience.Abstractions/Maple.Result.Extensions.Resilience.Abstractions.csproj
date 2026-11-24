@@ -42,6 +42,11 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
 
+  <!-- The only dependency: no Polly, no Microsoft.Extensions.* (#14). -->
+  <ItemGroup>
+    <PackageReference Include="Maple.Result" Version="3.0.0-rc.2" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Maple.Result.Extensions.Resilience.Abstractions.Tests.Unit" />
   </ItemGroup>
