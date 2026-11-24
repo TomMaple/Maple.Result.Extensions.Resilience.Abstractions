@@ -1,0 +1,29 @@
+<Solution>
+  <Folder Name="/.github/scripts/">
+    <File Path=".github/scripts/changes.py" />
+    <File Path=".github/scripts/conventional_commit.py" />
+    <File Path=".github/scripts/filter_sarif.py" />
+    <File Path=".github/scripts/release_state.py" />
+    <File Path=".github/scripts/version.py" />
+  </Folder>
+  <Folder Name="/.resources/">
+    <File Path=".resources/icon.png" />
+  </Folder>
+  <Folder Name="/root/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="cliff.toml" />
+    <File Path="Directory.Build.props" />
+    <File Path="global.json" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Maple.Result.Extensions.Resilience.Abstractions/Maple.Result.Extensions.Resilience.Abstractions.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="tests/CodeCoverage.config" />
+    <Project Path="tests/Maple.Result.Extensions.Resilience.Abstractions.Tests.Unit/Maple.Result.Extensions.Resilience.Abstractions.Tests.Unit.csproj" />
+  </Folder>
+</Solution>
