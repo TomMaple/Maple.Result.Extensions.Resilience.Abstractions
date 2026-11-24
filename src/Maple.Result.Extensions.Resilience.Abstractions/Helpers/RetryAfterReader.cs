@@ -27,9 +27,6 @@ internal static class RetryAfterReader
     /// <summary>The preferred format of an HTTP-date (RFC 9110, section 5.6.7), e.g., <c>Wed, 21 Oct 2026 07:28:00 GMT</c>.</summary>
     private const string HttpDateFormat = "r";
 
-    /// <summary>The largest number of whole seconds that a <see cref="TimeSpan" /> holds.</summary>
-    private const long MaxSeconds = long.MaxValue / TimeSpan.TicksPerSecond;
-
     /// <summary>The format of a normalized RFC 3339 text without an offset.</summary>
     private const string Rfc3339Format = "yyyy-MM-dd'T'HH:mm:ss.fffffff";
 
@@ -135,14 +132,14 @@ internal static class RetryAfterReader
                 return TryFromSeconds(number, out delay);
 
             case ulong number:
-                var ulongSeconds = number <= MaxSeconds
+                var ulongSeconds = number <= WholeSeconds.MaxSeconds
                     ? (long)number
                     : -1;
 
                 return TryFromSeconds(ulongSeconds, out delay);
 
             case decimal number:
-                var isWholeDecimal = decimal.IsInteger(number) && number is >= 0 and <= MaxSeconds;
+                var isWholeDecimal = decimal.IsInteger(number) && number is >= 0 and <= WholeSeconds.MaxSeconds;
                 var decimalSeconds = isWholeDecimal
                     ? (long)number
                     : -1;
@@ -166,7 +163,7 @@ internal static class RetryAfterReader
 
     private static bool TryFromSeconds(long seconds, out TimeSpan delay)
     {
-        if (seconds is < 0 or > MaxSeconds)
+        if (seconds is < 0 or > WholeSeconds.MaxSeconds)
         {
             delay = TimeSpan.Zero;
 
@@ -181,7 +178,7 @@ internal static class RetryAfterReader
     private static bool TryFromWholeDouble(double number, out TimeSpan delay)
     {
         // IsInteger is false for NaN and the infinities; -0.0 is a whole number that is not negative.
-        var isWholeNumber = double.IsInteger(number) && number is >= 0 and <= MaxSeconds;
+        var isWholeNumber = double.IsInteger(number) && number is >= 0 and <= WholeSeconds.MaxSeconds;
         var seconds = isWholeNumber
             ? (long)number
             : -1;

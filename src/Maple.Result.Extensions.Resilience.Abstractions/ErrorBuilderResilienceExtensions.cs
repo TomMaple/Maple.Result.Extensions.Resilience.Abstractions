@@ -56,7 +56,8 @@ public static class ErrorBuilderResilienceExtensions
     /// <param name="builder">The builder of the error.</param>
     /// <param name="delay">
     ///     The delay; zero or more. A fraction of a second is rounded up to the next whole second, so the hint is never earlier than asked
-    ///     (e.g., 1.2 seconds are stored as <c>2L</c>).
+    ///     (e.g., 1.2 seconds are stored as <c>2L</c>); at most <c>922337203685L</c> is stored, the largest number of whole seconds of a
+    ///     <see cref="TimeSpan" />.
     /// </param>
     /// <returns>The same <see cref="ErrorBuilder" /> instance.</returns>
     /// <remarks>
@@ -119,7 +120,8 @@ public static class ErrorBuilderResilienceExtensions
     /// </summary>
     /// <param name="builder">The builder of the error.</param>
     /// <param name="delay">
-    ///     The delay as it was received (e.g., <c>Retry-After: 120</c>); zero or more. A fraction of a second is rounded up to the next whole second.
+    ///     The delay as it was received (e.g., <c>Retry-After: 120</c>); zero or more. A fraction of a second is rounded up to the next whole second,
+    ///     and at most <c>922337203685L</c> is stored, as by <see cref="WithRetryAfter(ErrorBuilder, TimeSpan)" />.
     /// </param>
     /// <param name="receivedAt">
     ///     When the delay was received (e.g., the time of the response); it may be in the past and have any offset. A delay counts from this moment

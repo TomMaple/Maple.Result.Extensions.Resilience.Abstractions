@@ -112,7 +112,10 @@ public sealed record RetryAfter
     /// <param name="timeProvider">
     ///     The clock that gives “now” (<see cref="TimeProvider.GetUtcNow" />); <see langword="null" /> means <see cref="TimeProvider.System" />.
     /// </param>
-    /// <returns><see cref="GetRemaining" /> in whole seconds, rounded up; zero or more.</returns>
+    /// <returns>
+    ///     <see cref="GetRemaining" /> in whole seconds, rounded up; zero or more, and at most <c>922337203685</c>, the largest number of whole seconds
+    ///     of a <see cref="TimeSpan" />.
+    /// </returns>
     public long GetRemainingSeconds(TimeProvider? timeProvider = null)
     {
         var remaining = GetRemaining(timeProvider);

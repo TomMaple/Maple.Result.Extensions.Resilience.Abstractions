@@ -17,19 +17,32 @@ namespace Maple.Results.Extensions.Resilience.Abstractions.Helpers;
 /// </summary>
 internal static class WholeSeconds
 {
+    #region consts
+
+    /// <summary>The largest number of whole seconds that a <see cref="TimeSpan" /> holds: 922,337,203,685.</summary>
+    public const long MaxSeconds = long.MaxValue / TimeSpan.TicksPerSecond;
+
+    #endregion
+
     /// <summary>
-    ///     Returns the number of whole seconds of a duration that is not negative, a fraction rounded up.
+    ///     Returns the number of whole seconds of a duration that is not negative, a fraction rounded up, and at most <see cref="MaxSeconds" />.
     /// </summary>
     /// <remarks>
-    ///     Integer arithmetic: <see cref="TimeSpan.TotalSeconds" /> is a <see cref="double" />, which cannot hold every tick of a long duration.
+    ///     <para>
+    ///         Integer arithmetic: <see cref="TimeSpan.TotalSeconds" /> is a <see cref="double" />, which cannot hold every tick of a long duration.
+    ///     </para>
+    ///     <para>
+    ///         The cap: rounded up, a duration in the last second before <see cref="TimeSpan.MaxValue" /> would be one second more than a
+    ///         <see cref="TimeSpan" /> holds, and the reader would not accept the stored value.
+    ///     </para>
     /// </remarks>
     public static long RoundUp(TimeSpan duration)
     {
         var seconds = Math.DivRem(duration.Ticks, TimeSpan.TicksPerSecond, out var fractionTicks);
+        if (fractionTicks == 0)
+            return seconds;
 
-        return fractionTicks > 0
-            ? seconds + 1
-            : seconds;
+        return Math.Min(seconds + 1, MaxSeconds);
     }
 
     /// <summary>

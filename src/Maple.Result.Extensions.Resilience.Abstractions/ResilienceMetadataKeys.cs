@@ -41,8 +41,8 @@ public static class ResilienceMetadataKeys
     public const string RetryAfterDate = "retryAfterDate";
 
     /// <summary>
-    ///     The key of the delay before the operation is retried, as the source gave it: a <see cref="long" /> with the number of whole seconds, zero or
-    ///     more, e.g., <c>120</c>.
+    ///     The key of the delay before the operation is retried, as the source gave it: a <see cref="long" /> with the number of whole seconds, from
+    ///     <c>0</c> to <c>922337203685</c> (the largest number of whole seconds of a <see cref="System.TimeSpan" />), e.g., <c>120</c>.
     /// </summary>
     /// <remarks>
     ///     A delay counts from the moment it was received. When <see cref="RetryAfterDate" /> is present too, it holds that moment plus the delay.
