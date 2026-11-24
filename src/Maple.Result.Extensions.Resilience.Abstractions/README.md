@@ -21,7 +21,9 @@ using Maple.Results.Extensions.Resilience.Abstractions;
 ```
 
 ## Usage
-Store the delay, or the earliest time, to retry the operation with `WithRetryAfter` on an `ErrorBuilder`:
+### Storing the hint
+Store the delay, or the earliest time, to retry the operation with `WithRetryAfter` on an `ErrorBuilder`, or on an
+`Error` (which returns a changed copy):
 ```csharp
 // Retry-After: 120
 var rateLimited = ErrorBuilder.LimitExceeded(typeUri, "The rate limit was exceeded.")
@@ -32,15 +34,39 @@ var rateLimited = ErrorBuilder.LimitExceeded(typeUri, "The rate limit was exceed
 var unavailable = ErrorBuilder.Unavailable(typeUri, "The service is unavailable.")
     .WithRetryAfter(new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero))
     .Build();
+
+var withHint = error.WithRetryAfter(TimeSpan.FromSeconds(30));
 ```
 
 An error carries at most one hint: each call stores its own key and removes the other. It also removes the keys that
 differ from them only in case (e.g., `RetryAfterSeconds` taken from a response body), which `ErrorBuilder.WithMetadata`
 would reject.
 
+### Reading the hint
+`TryGetRetryAfter` on an `Error`, or `GetRetryAfter` on a `Result` or `Result<T>`, returns the delay to wait:
+```csharp
+if (error.TryGetRetryAfter(out var delay))
+{
+    await Task.Delay(delay, cancellationToken);
+}
+
+TimeSpan? retryAfter = result.GetRetryAfter();  // null for a success, or without a readable hint
+```
+
+* The first readable hint wins: the seconds before the date. A date gives the time from now until it; pass a
+  `TimeProvider` to set “now” (e.g., in tests). A date that has passed gives `TimeSpan.Zero`.
+* Seconds are readable as a whole number that is not negative, of any integral type, or a `decimal`, `double` or
+  `float` without a fraction: a JSON `120` comes back as any of them, depending on the deserializer. A fraction, a
+  negative value or a string is not readable.
+* A date is readable as RFC 3339 text (`2026-10-21T07:28:00+00:00`, `2026-10-21T07:28:00.5Z`), an HTTP-date
+  (`Wed, 21 Oct 2026 07:28:00 GMT`), a `DateTimeOffset` or a `DateTime`. A date without an offset
+  (`2026-10-21T07:28:00`, or a `DateTime` of kind `Unspecified`) is assumed to be UTC, and is readable only while it is
+  in the future.
+* No stored value makes the readers throw: the values can come from another service.
+
 ## Metadata keys
-The keys are in `ResilienceMetadataKeys`. `Error.TryGetMetadata<T>` does not convert a value, so read each key with its
-type:
+The keys are in `ResilienceMetadataKeys`. The writers store these types; to read a key directly, use its type, because
+`Error.TryGetMetadata<T>` does not convert a value:
 
 | Key | Type | Value |
 | --- | --- | --- |
