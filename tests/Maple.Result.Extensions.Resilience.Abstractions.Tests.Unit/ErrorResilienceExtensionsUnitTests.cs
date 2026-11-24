@@ -417,6 +417,7 @@ public class ErrorResilienceExtensionsUnitTests
         // Arrange
         var withOffset = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T09:28:00+02:00");
+
         var utc = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2026-10-21T07:28:00+00:00");
 

@@ -65,6 +65,7 @@ public class OperationResultResilienceExtensionsUnitTests
         // Arrange
         var error = CreateError()
             .WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, "120");
+
         IOperationResult result = Result.FromError(error);
 
         // Act
@@ -80,6 +81,7 @@ public class OperationResultResilienceExtensionsUnitTests
         // Arrange
         var error = CreateError()
             .WithRetryAfter(TimeSpan.FromSeconds(120));
+
         IOperationResult result = Result<string>.FromError(error);
 
         // Act
@@ -95,6 +97,7 @@ public class OperationResultResilienceExtensionsUnitTests
         // Arrange
         var error = CreateError()
             .WithRetryAfter(new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+
         IOperationResult result = Result.FromError(error);
 
         // Act
@@ -110,6 +113,7 @@ public class OperationResultResilienceExtensionsUnitTests
         // Arrange
         var error = CreateError()
             .WithRetryAfter(new DateTimeOffset(2026, 10, 21, 6, 0, 0, TimeSpan.Zero));
+
         IOperationResult result = Result.FromError(error);
 
         // Act
@@ -125,6 +129,7 @@ public class OperationResultResilienceExtensionsUnitTests
         // Arrange
         var error = CreateError()
             .WithRetryAfter(DateTimeOffset.UtcNow.AddHours(1));
+
         IOperationResult result = Result.FromError(error);
 
         // Act

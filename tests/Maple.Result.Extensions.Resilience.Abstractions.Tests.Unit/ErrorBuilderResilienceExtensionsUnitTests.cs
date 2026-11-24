@@ -365,6 +365,7 @@ public class ErrorBuilderResilienceExtensionsUnitTests
             .WithDetailTemplated("errors.unavailable", ("service", "orders"))
             .WithMetadata("traceId", "abc")
             .WithMetadata("limit", 100);
+
         var expected = builder.Build();
 
         // Act
@@ -389,6 +390,7 @@ public class ErrorBuilderResilienceExtensionsUnitTests
         // Arrange
         var builder = CreateBuilder()
             .WithMetadata("RetryAfterSeconds", 30);
+
         var builtBefore = builder.Build();
 
         // Act

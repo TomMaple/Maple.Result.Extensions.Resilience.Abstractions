@@ -163,6 +163,7 @@ internal static class RetryAfterReader
             var matches = shape[i] == 'd'
                 ? char.IsAsciiDigit(text[i])
                 : text[i] == shape[i];
+
             if (!matches)
                 return false;
         }
@@ -270,6 +271,7 @@ internal static class RetryAfterReader
         var offsetText = isNumericOffset
             ? offset.ToString()
             : "+00:00";
+
         var normalizedWithOffset = $"{dateTime}.{fractionText}{offsetText}";
 
         return DateTimeOffset.TryParseExact(normalizedWithOffset, Rfc3339WithOffsetFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out instant);
