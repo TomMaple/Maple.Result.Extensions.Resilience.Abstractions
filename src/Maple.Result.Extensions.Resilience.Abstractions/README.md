@@ -57,6 +57,19 @@ if (rateLimited.TryGetMetadata<long>(ResilienceMetadataKeys.RetryAfterSeconds, o
 The keys and their formats are a contract with other packages and with non-.NET clients that read a serialized error,
 so they do not change.
 
+## Standards
+The retry hint follows the `Retry-After` header of HTTP, and its date is written in the Internet date format:
+
+| Standard | What it defines here |
+| --- | --- |
+| [RFC 9110, §10.2.3](https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3) | The `Retry-After` header: a delay in whole seconds (`delay-seconds`) or an HTTP-date, for any follow-up request. |
+| [RFC 9110, §5.6.7](https://www.rfc-editor.org/rfc/rfc9110#section-5.6.7) | The HTTP-date of the header, e.g., `Wed, 21 Oct 2026 07:28:00 GMT`. |
+| [RFC 9110, §15.6.4](https://www.rfc-editor.org/rfc/rfc9110#section-15.6.4) and [§15.5.14](https://www.rfc-editor.org/rfc/rfc9110#section-15.5.14) | `503 Service Unavailable` and `413 Content Too Large`, which may carry the header to say how long the condition lasts. |
+| [RFC 6585, §4](https://www.rfc-editor.org/rfc/rfc6585#section-4) | `429 Too Many Requests`, which may carry the header to say how long to wait. |
+| [RFC 3339, §5.6](https://www.rfc-editor.org/rfc/rfc3339#section-5.6) | The date and time format of `retryAfterDate`. |
+| [RFC 9557, §2](https://www.rfc-editor.org/rfc/rfc9557#section-2) | Why the offset is `+00:00`: it says that UTC is the reference, while `Z` says that the local offset is unknown. |
+| [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) | Problem Details for HTTP APIs, which `Error` follows; its metadata, the retry hint included, are the extension members of a problem details object. |
+
 ## License
 
 [MIT](https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/LICENSE)
