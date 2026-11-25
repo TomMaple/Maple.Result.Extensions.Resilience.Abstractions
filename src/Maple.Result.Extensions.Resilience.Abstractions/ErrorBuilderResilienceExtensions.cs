@@ -180,13 +180,13 @@ public static class ErrorBuilderResilienceExtensions
         }
 
         /// <summary>
-        ///     Stores under <see cref="ResilienceMetadataKeys.Retryable" /> whether the operation may be retried, whatever the category and the retry
-        ///     hint say.
+        ///     Stores under <see cref="ResilienceMetadataKeys.Retryable" /> whether the operation may be retried,
+        ///     whatever the category and the retry hint say.
         /// </summary>
         /// <param name="retryable">
-        ///     <see langword="true" /> makes the error retryable (e.g., a <see cref="ErrorCategory.Validation" /> error of a service that is being
-        ///     deployed); <see langword="false" /> forbids a retry, also for an <see cref="ErrorCategory.Unavailable" /> error and with a retry hint
-        ///     (e.g., a monthly quota that is used up).
+        ///     <see langword="true" /> makes the error retryable (e.g., a <see cref="ErrorCategory.Validation" /> error of a service
+        ///     that is being deployed); <see langword="false" /> forbids a retry, also for an <see cref="ErrorCategory.Unavailable" /> error and
+        ///     with a retry hint (e.g., a monthly quota that is used up).
         /// </param>
         /// <returns>The same <see cref="ErrorBuilder" /> instance.</returns>
         /// <remarks>
