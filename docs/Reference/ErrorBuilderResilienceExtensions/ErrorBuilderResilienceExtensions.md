@@ -2,7 +2,7 @@
 ## Definition
 Namespace: [Maple.Results.Extensions.Resilience.Abstractions](../namespace.md)<br>
 Assembly: Maple.Result.Extensions.Resilience.Abstractions.dll<br>
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorBuilderResilienceExtensions.cs" target="_blank">ErrorBuilderResilienceExtensions.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorBuilderResilienceExtensions.cs" target="_blank">ErrorBuilderResilienceExtensions.cs</a>
 
 Extension methods of [ErrorBuilder](https://github.com/TomMaple/Maple.Result/blob/main/docs/Reference/ErrorBuilder/ErrorBuilder.md) that store how an operation that failed can be retried, and whether it may be.
 

@@ -2,7 +2,7 @@
 ## Definition
 Namespace: [Maple.Results.Extensions.Resilience.Abstractions](../namespace.md)<br>
 Assembly: Maple.Result.Extensions.Resilience.Abstractions.dll<br>
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/RetryAfter.cs" target="_blank">RetryAfter.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/RetryAfter.cs" target="_blank">RetryAfter.cs</a>
 
 The retry hint of an error: how long to wait before the operation is retried, as the source gave it, and when the wait ends.
 

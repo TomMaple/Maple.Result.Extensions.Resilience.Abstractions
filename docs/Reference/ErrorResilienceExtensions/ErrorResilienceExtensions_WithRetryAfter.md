@@ -17,7 +17,7 @@ The rules are those of [ErrorBuilderResilienceExtensions.WithRetryAfter](../Erro
 
 
 ## WithRetryAfter(Error, DateTimeOffset)
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorResilienceExtensions.cs#L181" target="_blank">ErrorResilienceExtensions.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorResilienceExtensions.cs#L181" target="_blank">ErrorResilienceExtensions.cs</a>
 
 Returns a copy of the error that stores the earliest time to retry the operation; the rules are those of [ErrorBuilderResilienceExtensions.WithRetryAfter(ErrorBuilder, DateTimeOffset)](../ErrorBuilderResilienceExtensions/ErrorBuilderResilienceExtensions_WithRetryAfter.md#withretryaftererrorbuilder-datetimeoffset).
 
@@ -42,7 +42,7 @@ The `error` is `null`.
 
 
 ## WithRetryAfter(Error, TimeSpan, DateTimeOffset)
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorResilienceExtensions.cs#L200" target="_blank">ErrorResilienceExtensions.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorResilienceExtensions.cs#L200" target="_blank">ErrorResilienceExtensions.cs</a>
 
 Returns a copy of the error that stores a delay that was received, with the time it was received; the rules are those of [ErrorBuilderResilienceExtensions.WithRetryAfter(ErrorBuilder, TimeSpan, DateTimeOffset)](../ErrorBuilderResilienceExtensions/ErrorBuilderResilienceExtensions_WithRetryAfter.md#withretryaftererrorbuilder-timespan-datetimeoffset).
 
@@ -80,7 +80,7 @@ var error = Error.LimitExceeded(ResilienceErrorUris.RateLimited, ResilienceError
 
 
 ## WithRetryAfter(Error, TimeSpan)
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorResilienceExtensions.cs#L164" target="_blank">ErrorResilienceExtensions.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorResilienceExtensions.cs#L164" target="_blank">ErrorResilienceExtensions.cs</a>
 
 Returns a copy of the error that stores the delay before the operation is retried; the rules are those of [ErrorBuilderResilienceExtensions.WithRetryAfter(ErrorBuilder, TimeSpan)](../ErrorBuilderResilienceExtensions/ErrorBuilderResilienceExtensions_WithRetryAfter.md#withretryaftererrorbuilder-timespan).
 

@@ -2,7 +2,7 @@
 ## Definition
 Namespace: [Maple.Results.Extensions.Resilience.Abstractions](../namespace.md)<br>
 Assembly: Maple.Result.Extensions.Resilience.Abstractions.dll<br>
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/RetryAfter.cs#L72" target="_blank">RetryAfter.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/RetryAfter.cs#L72" target="_blank">RetryAfter.cs</a>
 
 The form in which the source gave the hint: [RetryAfterKind.Delay](../RetryAfterKind.md) when [Delay](RetryAfter_Delay.md) has a value, otherwise [RetryAfterKind.Date](../RetryAfterKind.md).
 

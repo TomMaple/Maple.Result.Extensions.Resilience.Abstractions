@@ -2,7 +2,7 @@
 ## Definition
 Namespace: [Maple.Results.Extensions.Resilience.Abstractions](../namespace.md)<br>
 Assembly: Maple.Result.Extensions.Resilience.Abstractions.dll<br>
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorResilienceExtensions.cs#L73" target="_blank">ErrorResilienceExtensions.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorResilienceExtensions.cs#L73" target="_blank">ErrorResilienceExtensions.cs</a>
 
 Tells whether the error says that the operation may be retried.
 
