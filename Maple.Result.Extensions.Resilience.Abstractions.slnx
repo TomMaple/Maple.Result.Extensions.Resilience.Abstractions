@@ -5,8 +5,10 @@
   </Folder>
   <Folder Name="/.github/scripts/">
     <File Path=".github/scripts/changes.py" />
+    <File Path=".github/scripts/check_reference_docs.py" />
     <File Path=".github/scripts/conventional_commit.py" />
     <File Path=".github/scripts/filter_sarif.py" />
+    <File Path=".github/scripts/pin_reference_links.py" />
     <File Path=".github/scripts/release_state.py" />
     <File Path=".github/scripts/version.py" />
   </Folder>
@@ -22,6 +24,49 @@
   </Folder>
   <Folder Name="/.resources/">
     <File Path=".resources/icon.png" />
+  </Folder>
+  <Folder Name="/docs/">
+    <File Path="docs/conventions.md" />
+    <File Path="docs/goals.md" />
+    <File Path="docs/metadata-format.md" />
+    <File Path="docs/releasing.md" />
+  </Folder>
+  <Folder Name="/docs/guides/">
+    <File Path="docs/guides/pipeline-errors.md" />
+    <File Path="docs/guides/retry-hint.md" />
+    <File Path="docs/guides/retryable.md" />
+  </Folder>
+  <Folder Name="/docs/Reference/">
+    <File Path="docs/Reference/ResilienceErrorTitles.md" />
+    <File Path="docs/Reference/ResilienceErrorUris.md" />
+    <File Path="docs/Reference/ResilienceMetadataKeys.md" />
+    <File Path="docs/Reference/RetryAfterKind.md" />
+    <File Path="docs/Reference/namespace.md" />
+  </Folder>
+  <Folder Name="/docs/Reference/ErrorBuilderResilienceExtensions/">
+    <File Path="docs/Reference/ErrorBuilderResilienceExtensions/ErrorBuilderResilienceExtensions.md" />
+    <File Path="docs/Reference/ErrorBuilderResilienceExtensions/ErrorBuilderResilienceExtensions_WithRetryAfter.md" />
+    <File Path="docs/Reference/ErrorBuilderResilienceExtensions/ErrorBuilderResilienceExtensions_WithRetryable.md" />
+  </Folder>
+  <Folder Name="/docs/Reference/ErrorResilienceExtensions/">
+    <File Path="docs/Reference/ErrorResilienceExtensions/ErrorResilienceExtensions.md" />
+    <File Path="docs/Reference/ErrorResilienceExtensions/ErrorResilienceExtensions_IsRetryable.md" />
+    <File Path="docs/Reference/ErrorResilienceExtensions/ErrorResilienceExtensions_TryGetRetryAfter.md" />
+    <File Path="docs/Reference/ErrorResilienceExtensions/ErrorResilienceExtensions_WithRetryAfter.md" />
+    <File Path="docs/Reference/ErrorResilienceExtensions/ErrorResilienceExtensions_WithRetryable.md" />
+  </Folder>
+  <Folder Name="/docs/Reference/OperationResultResilienceExtensions/">
+    <File Path="docs/Reference/OperationResultResilienceExtensions/OperationResultResilienceExtensions.md" />
+    <File Path="docs/Reference/OperationResultResilienceExtensions/OperationResultResilienceExtensions_GetRetryAfter.md" />
+    <File Path="docs/Reference/OperationResultResilienceExtensions/OperationResultResilienceExtensions_IsRetryableError.md" />
+  </Folder>
+  <Folder Name="/docs/Reference/RetryAfter/">
+    <File Path="docs/Reference/RetryAfter/RetryAfter.md" />
+    <File Path="docs/Reference/RetryAfter/RetryAfter_Delay.md" />
+    <File Path="docs/Reference/RetryAfter/RetryAfter_GetRemaining.md" />
+    <File Path="docs/Reference/RetryAfter/RetryAfter_GetRemainingSeconds.md" />
+    <File Path="docs/Reference/RetryAfter/RetryAfter_Kind.md" />
+    <File Path="docs/Reference/RetryAfter/RetryAfter_RetryAt.md" />
   </Folder>
   <Folder Name="/root/">
     <File Path=".editorconfig" />

@@ -91,6 +91,13 @@ jobs:
         TAGS_EXIST: ${{ steps.tags.outputs.exist }}
         BUMPED: ${{ steps.git_cliff.outputs.content }}
 
+    # The source links of the reference pages have to open the tag of this release, which the pull request that prepares
+    # it pins (docs/releasing.md): a release is not drafted with links to main or to an earlier release.
+    - name: Check the source links of the reference pages
+      run: python3 -I .github/scripts/check_reference_docs.py --release "${VERSION}"
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+
     - name: Setup .NET 10
       uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
       with:
