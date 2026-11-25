@@ -9,6 +9,9 @@ that write a response can put it back into the header.
 
 It also says whether an error may be retried at all (`IsRetryable`), from an explicit flag, the hint or the category.
 
+And it names the errors that a resilience pipeline creates when it rejects an operation (a timeout, an open circuit, a
+rate limiter): their types and titles.
+
 * It references only `Maple.Result`: no Polly, no `Microsoft.Extensions.*`.
 * Native AOT and trimming compatible.
 
@@ -114,6 +117,27 @@ if (result.IsRetryableError())
 
 The answer describes the **error**. Whether the operation is safe to repeat (idempotent, RFC 9110, section 9.2.2) is for
 the caller to know: e.g., a payment that timed out may have been made.
+
+### Errors of a resilience pipeline
+`ResilienceErrorUris` and `ResilienceErrorTitles` hold the types and titles of the errors that a resilience pipeline
+creates when it rejects an operation. The main package, `Maple.Result.Extensions.Resilience`, creates them; a service or
+another package recognises them without a reference to Polly:
+
+| Member | Type (`ResilienceErrorUris`) | Title (`ResilienceErrorTitles`) | Category of the error | Created for |
+| --- | --- | --- | --- | --- |
+| `Timeout` | `tag:mapledev.engineer,2026-03-03:result.resilience.timeout` | The operation timed out. | `Timeout` | a timeout strategy that ended the operation |
+| `CircuitOpen` | `tag:mapledev.engineer,2026-03-03:result.resilience.circuitOpen` | The circuit breaker is open. | `Unavailable` | a circuit breaker that is open or isolated |
+| `RateLimited` | `tag:mapledev.engineer,2026-03-03:result.resilience.rateLimited` | The rate limit was exceeded. | `LimitExceeded` | a rate limiter that rejected the operation |
+
+A type goes with the title of the same name:
+```csharp
+var circuitOpen = Error.Unavailable(ResilienceErrorUris.CircuitOpen, ResilienceErrorTitles.CircuitOpen);
+
+if (error.TypeUri == ResilienceErrorUris.CircuitOpen)
+{
+    // the operation was not attempted
+}
+```
 
 ## Metadata keys
 The keys are in `ResilienceMetadataKeys`. The writers store these types; to read a key directly, use its type, because
