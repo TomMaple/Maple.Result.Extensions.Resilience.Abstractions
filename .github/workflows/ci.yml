@@ -1,9 +1,11 @@
 # Builds, tests and packs the library on pushes to main and on pull requests. Nothing is published from here:
-# releases go through the "Draft release" and "Publish" workflows.
+# releases go through the "Draft release" and "Publish" workflows (see docs/releasing.md).
 # The job ids "build" and "newer-sdk" are required status checks: keep the names, and never add a "paths" filter. On pull
-# requests that change no code (e.g. only docs/), both are skipped, which counts as passed.
+# requests that change no code (e.g. only docs/), both are skipped, which counts as passed. The job "reference" checks the
+# reference pages against the sources; it always runs, because a change of the documentation alone can break them.
 # Jobs:
 #   - "changes" (contents and pull-requests read) classifies the changed files (.github/scripts/changes.py);
+#   - "reference" (contents read) checks docs/Reference against the sources, and the links of README.md and docs/;
 #   - "build" (contents read) checks the formatting and the package dependencies, builds without warnings, tests with
 #     at least MINIMUM_COVERAGE line and branch coverage, and uploads the test results and a X.Y.Z-ci.N package;
 #   - "newer-sdk" (contents read) builds and tests with the .NET SDK after the one of "build".
@@ -68,6 +70,26 @@ jobs:
         EVENT_NAME: ${{ github.event_name }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GH_TOKEN: ${{ github.token }}
+
+  # Checks docs/Reference against the sources, and the relative links of README.md and docs/
+  # (.github/scripts/check_reference_docs.py; the rules are in docs/conventions.md, "Documentation"). It is not gated
+  # on the "changes" job: it reads only the repository, takes seconds, and has to run for a pull request that changes
+  # only the documentation, where "build" is skipped.
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        # The tags: a source link that opens a release is checked against the code of that release.
+        fetch-depth: 0
+        persist-credentials: false
+
+    - name: Check the reference pages
+      run: python3 -I .github/scripts/check_reference_docs.py
 
   build:
     needs: changes
