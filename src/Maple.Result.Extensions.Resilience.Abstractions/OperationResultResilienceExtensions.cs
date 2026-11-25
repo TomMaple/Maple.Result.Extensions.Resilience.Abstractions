@@ -19,7 +19,7 @@ namespace Maple.Results.Extensions.Resilience.Abstractions;
 public static class OperationResultResilienceExtensions
 {
     /// <summary>
-    ///     The members that read the retry hint of a failed <see cref="IOperationResult" />.
+    ///     The members that read the retry hint of a failed <see cref="IOperationResult" />, and whether it may be retried.
     /// </summary>
     /// <param name="result">The result.</param>
     extension(IOperationResult result)
@@ -49,6 +49,27 @@ public static class OperationResultResilienceExtensions
             return error.TryGetRetryAfter(out var retryAfter, timeProvider)
                 ? retryAfter
                 : null;
+        }
+
+        /// <summary>
+        ///     Tells whether the result failed with an error that may be retried.
+        /// </summary>
+        /// <param name="timeProvider">
+        ///     The clock for a retry hint with a date without an offset, which is readable only while it is in the future;
+        ///     <see langword="null" /> means <see cref="TimeProvider.System" />.
+        /// </param>
+        /// <returns>
+        ///     <see langword="false" /> for a successful result; otherwise <see cref="ErrorResilienceExtensions.IsRetryable" /> of its error.
+        /// </returns>
+        /// <remarks>
+        ///     The answer describes the error. Whether the operation is safe to repeat (idempotent, RFC 9110, section 9.2.2) is for the caller to know.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">If the <paramref name="result" /> is <see langword="null" />.</exception>
+        public bool IsRetryableError(TimeProvider? timeProvider = null)
+        {
+            ArgumentNullException.ThrowIfNull(result);
+
+            return result.TryGetError(out var error) && error.IsRetryable(timeProvider);
         }
     }
 }

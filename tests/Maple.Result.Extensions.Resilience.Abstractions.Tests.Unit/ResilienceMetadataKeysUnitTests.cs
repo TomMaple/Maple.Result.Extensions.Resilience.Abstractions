@@ -34,4 +34,14 @@ public class ResilienceMetadataKeysUnitTests
         // Assert
         key.ShouldBe("retryAfterSeconds");
     }
+
+    [Fact]
+    public void Retryable_Always_IsCamelCaseName()
+    {
+        // Act
+        var key = ResilienceMetadataKeys.Retryable;
+
+        // Assert
+        key.ShouldBe("retryable");
+    }
 }

@@ -48,4 +48,13 @@ public static class ResilienceMetadataKeys
     ///     A delay counts from the moment it was received. When <see cref="RetryAfterDate" /> is present too, it holds that moment plus the delay.
     /// </remarks>
     public const string RetryAfterSeconds = "retryAfterSeconds";
+
+    /// <summary>
+    ///     The key of the explicit answer whether the operation may be retried: a <see cref="bool" />. <see langword="true" /> makes any error
+    ///     retryable, <see langword="false" /> forbids a retry, also with a retry hint; see <see cref="ErrorResilienceExtensions.IsRetryable" />.
+    /// </summary>
+    /// <remarks>
+    ///     A value that is not a <see cref="bool" /> (e.g., the text <c>"true"</c>) counts as absent.
+    /// </remarks>
+    public const string Retryable = "retryable";
 }

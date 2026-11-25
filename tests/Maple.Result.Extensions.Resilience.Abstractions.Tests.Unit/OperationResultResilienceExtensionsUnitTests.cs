@@ -162,6 +162,93 @@ public class OperationResultResilienceExtensionsUnitTests
         exception.ShouldBeOfType<ArgumentNullException>().ParamName.ShouldBe("result");
     }
 
+    [Fact]
+    public void IsRetryableError_SuccessfulResult_ReturnsFalse()
+    {
+        // Arrange
+        IOperationResult result = Result.Success();
+
+        // Act
+        var isRetryable = result.IsRetryableError(Clock);
+
+        // Assert
+        isRetryable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IsRetryableError_SuccessfulResultWithValue_ReturnsFalse()
+    {
+        // Arrange
+        IOperationResult result = Result.FromValue(42);
+
+        // Act
+        var isRetryable = result.IsRetryableError(Clock);
+
+        // Assert
+        isRetryable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IsRetryableError_FailedResultWithRetryableError_ReturnsTrue()
+    {
+        // Arrange
+        IOperationResult result = Result<string>.FromError(CreateError());
+
+        // Act
+        var isRetryable = result.IsRetryableError(Clock);
+
+        // Assert
+        isRetryable.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsRetryableError_FailedResultWithFlagFalse_ReturnsFalse()
+    {
+        // Arrange
+        var error = CreateError()
+            .WithRetryable(false);
+
+        IOperationResult result = Result.FromError(error);
+
+        // Act
+        var isRetryable = result.IsRetryableError(Clock);
+
+        // Assert
+        isRetryable.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(1999, true)]
+    [InlineData(2026, false)]
+    public void IsRetryableError_DateWithoutOffset_PassesTimeProvider(int year, bool expected)
+    {
+        // Arrange (a Validation error is retryable here only by its hint)
+        var error = Error.Validation(TypeUri, Title)
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2000-01-01T00:00:00");
+
+        IOperationResult result = Result.FromError(error);
+        var clock = new FixedTimeProvider(new DateTimeOffset(year, 6, 1, 0, 0, 0, TimeSpan.Zero));
+
+        // Act
+        var isRetryable = result.IsRetryableError(clock);
+
+        // Assert
+        isRetryable.ShouldBe(expected);
+    }
+
+    [Fact]
+    public void IsRetryableError_NullResult_ThrowsArgumentNullException()
+    {
+        // Arrange
+        IOperationResult result = null!;
+
+        // Act
+        var exception = Record.Exception(() => result.IsRetryableError(Clock));
+
+        // Assert
+        exception.ShouldBeOfType<ArgumentNullException>().ParamName.ShouldBe("result");
+    }
+
     #region helper methods
 
     private static Error CreateError()

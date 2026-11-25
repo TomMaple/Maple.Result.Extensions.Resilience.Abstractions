@@ -16,7 +16,7 @@ using System.Linq;
 namespace Maple.Results.Extensions.Resilience.Abstractions;
 
 /// <summary>
-///     Extension methods of <see cref="ErrorBuilder" /> that store how an operation that failed can be retried.
+///     Extension methods of <see cref="ErrorBuilder" /> that store how an operation that failed can be retried, and whether it may be.
 /// </summary>
 /// <remarks>
 ///     <list type="table">
@@ -56,7 +56,7 @@ public static class ErrorBuilderResilienceExtensions
     #endregion
 
     /// <summary>
-    ///     The members that store the retry hint on an <see cref="ErrorBuilder" />.
+    ///     The members that store the retry hint and the <see cref="ResilienceMetadataKeys.Retryable" /> flag on an <see cref="ErrorBuilder" />.
     /// </summary>
     /// <param name="builder">The builder of the error.</param>
     extension(ErrorBuilder builder)
@@ -92,7 +92,7 @@ public static class ErrorBuilderResilienceExtensions
 
             var seconds = WholeSeconds.RoundUp(delay);
 
-            RemoveRetryAfterKeys(builder);
+            RemoveKeysIgnoringCase(builder, ResilienceMetadataKeys.RetryAfterSeconds, ResilienceMetadataKeys.RetryAfterDate);
 
             return builder.WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, seconds);
         }
@@ -120,7 +120,7 @@ public static class ErrorBuilderResilienceExtensions
 
             var text = FormatRetryAfterDate(retryAt);
 
-            RemoveRetryAfterKeys(builder);
+            RemoveKeysIgnoringCase(builder, ResilienceMetadataKeys.RetryAfterSeconds, ResilienceMetadataKeys.RetryAfterDate);
 
             return builder.WithMetadata(ResilienceMetadataKeys.RetryAfterDate, text);
         }
@@ -163,7 +163,7 @@ public static class ErrorBuilderResilienceExtensions
 
             var seconds = WholeSeconds.RoundUp(delay);
 
-            RemoveRetryAfterKeys(builder);
+            RemoveKeysIgnoringCase(builder, ResilienceMetadataKeys.RetryAfterSeconds, ResilienceMetadataKeys.RetryAfterDate);
             builder.WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, seconds);
 
             // Compared in whole seconds, so that the sum is calculated only when it is in range.
@@ -177,6 +177,30 @@ public static class ErrorBuilderResilienceExtensions
             var text = FormatRetryAfterDate(retryAt);
 
             return builder.WithMetadata(ResilienceMetadataKeys.RetryAfterDate, text);
+        }
+
+        /// <summary>
+        ///     Stores under <see cref="ResilienceMetadataKeys.Retryable" /> whether the operation may be retried, whatever the category and the retry
+        ///     hint say.
+        /// </summary>
+        /// <param name="retryable">
+        ///     <see langword="true" /> makes the error retryable (e.g., a <see cref="ErrorCategory.Validation" /> error of a service that is being
+        ///     deployed); <see langword="false" /> forbids a retry, also for an <see cref="ErrorCategory.Unavailable" /> error and with a retry hint
+        ///     (e.g., a monthly quota that is used up).
+        /// </param>
+        /// <returns>The same <see cref="ErrorBuilder" /> instance.</returns>
+        /// <remarks>
+        ///     The value is a <see cref="bool" />. Every existing key that equals <see cref="ResilienceMetadataKeys.Retryable" /> ignoring case
+        ///     (e.g., <c>Retryable</c> taken from a response body) is removed first, so the flag replaces it. The retry hint is not changed.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">If the <paramref name="builder" /> is <see langword="null" />.</exception>
+        public ErrorBuilder WithRetryable(bool retryable)
+        {
+            ArgumentNullException.ThrowIfNull(builder);
+
+            RemoveKeysIgnoringCase(builder, ResilienceMetadataKeys.Retryable);
+
+            return builder.WithMetadata(ResilienceMetadataKeys.Retryable, retryable);
         }
     }
 
@@ -193,23 +217,19 @@ public static class ErrorBuilderResilienceExtensions
         return rounded.ToString(RetryAfterDateFormat, CultureInfo.InvariantCulture);
     }
 
-    private static bool IsRetryAfterKey(string key)
-        => string.Equals(key, ResilienceMetadataKeys.RetryAfterSeconds, StringComparison.OrdinalIgnoreCase)
-           || string.Equals(key, ResilienceMetadataKeys.RetryAfterDate, StringComparison.OrdinalIgnoreCase);
-
     /// <summary>
-    ///     Removes both retry keys and every key that differs from them only in case: <see cref="ErrorBuilder.WithMetadata(string, object)" /> throws
-    ///     for a key that differs only in case from an existing one.
+    ///     Removes the keys and every key that differs from them only in case: <see cref="ErrorBuilder.WithMetadata(string, object)" /> throws for a
+    ///     key that differs only in case from an existing one.
     /// </summary>
     /// <remarks>
     ///     The builder does not expose its metadata, so the keys are read from a snapshot (<see cref="ErrorBuilder.Build" /> never throws), and
     ///     <see cref="ErrorBuilder.WithoutMetadata(string)" /> removes each with its exact spelling.
     /// </remarks>
-    private static void RemoveRetryAfterKeys(ErrorBuilder builder)
+    private static void RemoveKeysIgnoringCase(ErrorBuilder builder, params string[] keys)
     {
         var snapshot = builder.Build();
-        var retryAfterKeys = snapshot.Metadata.Keys.Where(IsRetryAfterKey);
-        foreach (var key in retryAfterKeys)
+        var matchingKeys = snapshot.Metadata.Keys.Where(key => keys.Contains(key, StringComparer.OrdinalIgnoreCase));
+        foreach (var key in matchingKeys)
             builder.WithoutMetadata(key);
     }
 

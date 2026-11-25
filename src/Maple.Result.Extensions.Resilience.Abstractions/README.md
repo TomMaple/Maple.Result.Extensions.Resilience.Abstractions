@@ -7,6 +7,8 @@ The package stores a **retry hint** on an `Error`, so that every package that ma
 value types: e.g., `Maple.Result.Extensions.HttpClient` stores the `Retry-After` header of a response, and the packages
 that write a response can put it back into the header.
 
+It also says whether an error may be retried at all (`IsRetryable`), from an explicit flag, the hint or the category.
+
 * It references only `Maple.Result`: no Polly, no `Microsoft.Extensions.*`.
 * Native AOT and trimming compatible.
 
@@ -86,14 +88,41 @@ RetryAfter? hint = result.GetRetryAfter();  // null for a success, or without a 
   it is in the future.
 * No stored value makes the readers throw: the values can come from another service.
 
+### Is the error retryable?
+`IsRetryable` on an `Error`, or `IsRetryableError` on a `Result` or `Result<T>`, tells whether the error says that the
+operation may be retried. The first rule that matches gives the answer:
+
+| # | Rule | Result |
+| --- | --- | --- |
+| 1 | The flag `retryable` is a `bool` | its value: `true` makes any error retryable, `false` forbids a retry, also with a retry hint |
+| 2 | The retry hint is readable (`TryGetRetryAfter`) | `true`, whatever the category (e.g., a `Validation` error of a 413 with `Retry-After`) |
+| 3 | The category is `Unavailable`, `Timeout` or `LimitExceeded` | `true` |
+| 4 | Otherwise | `false`, also for `Critical` and `NotImplemented` |
+
+Set the flag with `WithRetryable` when the category or the hint would give the wrong answer:
+```csharp
+// A quota that is used up: retrying this month does not help, whatever the category says
+var quotaUsedUp = Error.LimitExceeded(typeUri, "Monthly quota used up.")
+    .WithRetryable(false);
+
+if (result.IsRetryableError())
+{
+    // retry, if the operation is safe to repeat
+}
+```
+
+The answer describes the **error**. Whether the operation is safe to repeat (idempotent, RFC 9110, section 9.2.2) is for
+the caller to know: e.g., a payment that timed out may have been made.
+
 ## Metadata keys
 The keys are in `ResilienceMetadataKeys`. The writers store these types; to read a key directly, use its type, because
 `Error.TryGetMetadata<T>` does not convert a value:
 
 | Key | Type | Value |
 | --- | --- | --- |
-| `retryAfterSeconds` | `long` | The delay as the source gave it, in whole seconds, zero or more; a fraction is rounded up (1.2 s → `2`). |
+| `retryAfterSeconds` | `long` | The delay as the source gave it, in whole seconds, from 0 to 922,337,203,685; a fraction is rounded up (1.2 s → `2`). |
 | `retryAfterDate` | `string` | When the wait ends: the UTC time in whole seconds, `yyyy-MM-dd'T'HH:mm:sszzz`, e.g., `2026-10-21T07:28:00+00:00`; a fraction is rounded up. The offset is always `+00:00`, never `Z`. |
+| `retryable` | `bool` | Whether the operation may be retried, whatever the category and the hint say (`IsRetryable`, rule 1). |
 
 An error can carry both keys: then the date says when the wait ends, and the seconds what the source gave.
 

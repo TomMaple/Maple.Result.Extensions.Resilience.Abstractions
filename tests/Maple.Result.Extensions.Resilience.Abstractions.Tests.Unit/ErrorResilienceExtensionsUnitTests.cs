@@ -749,10 +749,313 @@ public class ErrorResilienceExtensionsUnitTests
 
     #endregion
 
+    #region WithRetryable
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void WithRetryable_AnyError_StoresSameValueAsBuilderAndLeavesOriginalUnchanged(bool retryable)
+    {
+        // Arrange
+        var error = CreateError()
+            .WithMetadata("Retryable", "yes");
+
+        var expected = error.ToBuilder()
+            .WithRetryable(retryable)
+            .Build();
+
+        // Act
+        var result = error.WithRetryable(retryable);
+
+        // Assert
+        result.ShouldBe(expected);
+        result.Metadata.Count.ShouldBe(1);
+        result.Metadata[ResilienceMetadataKeys.Retryable].ShouldBe(retryable);
+        error.Metadata.Count.ShouldBe(1);
+        error.Metadata["Retryable"].ShouldBe("yes");
+    }
+
+    [Fact]
+    public void WithRetryable_NullError_ThrowsArgumentNullException()
+    {
+        // Arrange
+        Error error = null!;
+
+        // Act
+        var exception = Record.Exception(() => error.WithRetryable(true));
+
+        // Assert
+        exception.ShouldBeOfType<ArgumentNullException>().ParamName.ShouldBe("error");
+    }
+
+    #endregion
+
+    #region IsRetryable
+
+    // One row per ErrorCategory: IsRetryable_EveryCategory_HasRow fails when the core adds a category.
+    public static TheoryData<ErrorCategory, bool> RetryableByCategory => new()
+    {
+        { ErrorCategory.Validation, false },
+        { ErrorCategory.Unauthenticated, false },
+        { ErrorCategory.PermissionDenied, false },
+        { ErrorCategory.NotFound, false },
+        { ErrorCategory.Timeout, true },
+        { ErrorCategory.Conflict, false },
+        { ErrorCategory.Failure, false },
+        { ErrorCategory.Critical, false },
+        { ErrorCategory.NotImplemented, false },
+        { ErrorCategory.Unavailable, true },
+        { ErrorCategory.LimitExceeded, true },
+    };
+
+    [Theory]
+    [MemberData(nameof(RetryableByCategory))]
+    public void IsRetryable_CategoryWithoutFlagOrHint_ReturnsByCategory(ErrorCategory category, bool expected)
+    {
+        // Arrange
+        var error = CreateError(category);
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBe(expected);
+    }
+
+    [Fact]
+    public void IsRetryable_EveryCategory_HasRow()
+    {
+        // Arrange
+        var categories = Enum.GetValues<ErrorCategory>();
+
+        // Act
+        var rows = RetryableByCategory.Count;
+
+        // Assert
+        rows.ShouldBe(categories.Length);
+    }
+
+    [Theory]
+    [InlineData(ErrorCategory.Validation)]
+    [InlineData(ErrorCategory.Conflict)]
+    [InlineData(ErrorCategory.Critical)]
+    public void IsRetryable_ReadableHint_ReturnsTrueWhateverCategory(ErrorCategory category)
+    {
+        // Arrange
+        var error = CreateError(category)
+            .WithRetryAfter(TimeSpan.FromSeconds(30));
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsRetryable_PastDateWithOffset_ReturnsTrue()
+    {
+        // Arrange (a readable hint whose wait is over)
+        var error = CreateError(ErrorCategory.Validation)
+            .WithRetryAfter(Now.AddHours(-1));
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(ErrorCategory.Validation)]
+    [InlineData(ErrorCategory.Conflict)]
+    [InlineData(ErrorCategory.Critical)]
+    public void IsRetryable_UnreadableHint_ReturnsFalseForCategoryThatIsNotRetryable(ErrorCategory category)
+    {
+        // Arrange
+        var error = CreateError(category)
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, "30")
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "tomorrow");
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(ErrorCategory.Validation)]
+    [InlineData(ErrorCategory.Critical)]
+    [InlineData(ErrorCategory.NotImplemented)]
+    public void IsRetryable_FlagTrue_ReturnsTrueWhateverCategory(ErrorCategory category)
+    {
+        // Arrange
+        var error = CreateError(category)
+            .WithRetryable(true);
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(ErrorCategory.Unavailable)]
+    [InlineData(ErrorCategory.Timeout)]
+    [InlineData(ErrorCategory.LimitExceeded)]
+    public void IsRetryable_FlagFalse_ReturnsFalseForRetryableCategory(ErrorCategory category)
+    {
+        // Arrange
+        var error = CreateError(category)
+            .WithRetryable(false);
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IsRetryable_FlagFalseWithHint_ReturnsFalse()
+    {
+        // Arrange
+        var error = CreateError(ErrorCategory.LimitExceeded)
+            .WithRetryAfter(TimeSpan.FromSeconds(30), Now)
+            .WithRetryable(false);
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeFalse();
+    }
+
+    public static TheoryData<object?> NotBoolFlags => new()
+    {
+        "true",
+        "false",
+        1,
+        0,
+        null!, // TheoryData does not take a null row without the operator
+    };
+
+    [Theory]
+    [MemberData(nameof(NotBoolFlags))]
+    public void IsRetryable_FlagThatIsNotBoolOnRetryableCategory_ReturnsTrue(object? flag)
+    {
+        // Arrange
+        var error = CreateError(ErrorCategory.Unavailable)
+            .WithMetadata(ResilienceMetadataKeys.Retryable, flag);
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeTrue();
+    }
+
+    [Theory]
+    [MemberData(nameof(NotBoolFlags))]
+    public void IsRetryable_FlagThatIsNotBoolOnOtherCategory_ReturnsFalse(object? flag)
+    {
+        // Arrange
+        var error = CreateError(ErrorCategory.Validation)
+            .WithMetadata(ResilienceMetadataKeys.Retryable, flag);
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeFalse();
+    }
+
+    [Theory]
+    [MemberData(nameof(NotBoolFlags))]
+    public void IsRetryable_FlagThatIsNotBoolWithHint_ReturnsTrue(object? flag)
+    {
+        // Arrange
+        var error = CreateError(ErrorCategory.Validation)
+            .WithMetadata(ResilienceMetadataKeys.Retryable, flag)
+            .WithRetryAfter(TimeSpan.FromSeconds(30));
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsRetryable_KeyWithOtherSpelling_CountsAsAbsent()
+    {
+        // Arrange
+        var error = CreateError(ErrorCategory.Unavailable)
+            .WithMetadata("Retryable", false);
+
+        // Act
+        var isRetryable = error.IsRetryable(Clock);
+
+        // Assert
+        isRetryable.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(1999, true)]
+    [InlineData(2026, false)]
+    public void IsRetryable_DateWithoutOffset_UsesTimeProvider(int year, bool expected)
+    {
+        // Arrange (2000-01-01 without an offset is readable only while it is in the future)
+        var error = CreateError(ErrorCategory.Validation)
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2000-01-01T00:00:00");
+
+        var clock = new FixedTimeProvider(new DateTimeOffset(year, 6, 1, 0, 0, 0, TimeSpan.Zero));
+
+        // Act
+        var isRetryable = error.IsRetryable(clock);
+
+        // Assert
+        isRetryable.ShouldBe(expected);
+    }
+
+    [Fact]
+    public void IsRetryable_NoTimeProvider_UsesSystemClock()
+    {
+        // Arrange (in the past for the system clock)
+        var error = CreateError(ErrorCategory.Validation)
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterDate, "2000-01-01T00:00:00");
+
+        // Act
+        var isRetryable = error.IsRetryable();
+
+        // Assert
+        isRetryable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IsRetryable_NullError_ThrowsArgumentNullException()
+    {
+        // Arrange
+        Error error = null!;
+
+        // Act
+        var exception = Record.Exception(() => error.IsRetryable(Clock));
+
+        // Assert
+        exception.ShouldBeOfType<ArgumentNullException>().ParamName.ShouldBe("error");
+    }
+
+    #endregion
+
     #region helper methods
 
     private static Error CreateError()
         => Error.Unavailable(TypeUri, Title);
+
+    private static Error CreateError(ErrorCategory category)
+        => new ErrorBuilder(category, TypeUri, Title).Build();
 
     #endregion
 }
