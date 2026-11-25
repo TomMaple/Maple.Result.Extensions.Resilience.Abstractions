@@ -54,7 +54,7 @@ reads the error later (a second retry pipeline, an orchestrator, a service that 
 is really left, not the full delay again. Don't use `receivedAt` for an error that is reused: its instant passes.
 
 Each call replaces both keys, also the ones that differ from them only in case (e.g., `RetryAfterSeconds` taken from a
-response body), which `ErrorBuilder.WithMetadata` would reject.
+response body), and stores them in the spelling of `ResilienceMetadataKeys`.
 
 ### Reading the hint
 `TryGetRetryAfter` on an `Error`, or `GetRetryAfter` on a `Result` or `Result<T>`, returns a `RetryAfter`:
@@ -86,6 +86,7 @@ RetryAfter? hint = result.GetRetryAfter();  // null for a success, or without a 
   (`Wed, 21 Oct 2026 07:28:00 GMT`), a `DateTimeOffset` or a `DateTime`, also when it has passed. A date without an
   offset (`2026-10-21T07:28:00`, or a `DateTime` of kind `Unspecified`) is assumed to be UTC, and is readable only while
   it is in the future.
+* A key is found whatever its case (e.g., `RetryAfterSeconds` or `RETRYAFTERDATE` taken from a response body).
 * No stored value makes the readers throw: the values can come from another service.
 
 ### Is the error retryable?
@@ -125,6 +126,9 @@ The keys are in `ResilienceMetadataKeys`. The writers store these types; to read
 | `retryable` | `bool` | Whether the operation may be retried, whatever the category and the hint say (`IsRetryable`, rule 1). |
 
 An error can carry both keys: then the date says when the wait ends, and the seconds what the source gave.
+
+The readers find a key whatever its case (e.g., `Retryable` taken from a response body), as every lookup of
+`Maple.Result` does; the writers store the spelling of the table.
 
 The keys and their formats are a contract with other packages and with non-.NET clients that read a serialized error,
 so they do not change.
