@@ -120,7 +120,7 @@ over it. They follow the [conventions of the core](https://github.com/TomMaple/M
 	* Test class: `<TestedType><TestType>Tests` (e.g., `ErrorBuilderResilienceExtensionsUnitTests`). Tests of one concern
 	  across many types are named after the concern.
 	* Test method: `<Member>_<Scenario>_<ExpectedBehavior>`
-	  ([naming convention](https://learn.microsoft.com/dotnet/core/testing/unit-testing-best-practices#naming-your-tests)),
+	  ([naming convention](https://learn.microsoft.com/dotnet/core/testing/unit-testing-best-practices#follow-test-naming-standards)),
 	  e.g., `WithRetryAfterDelay_NegativeDelay_ThrowsArgumentOutOfRangeException`.
 	* Every class that is not a test class goes under `TestingInfrastructure/`, by kind: `Fakes/` (test doubles, e.g.,
 	  `FixedTimeProvider`), `Fixtures/`, `Helpers/` and `TestData/`; test data used by one test class stays in that class.
