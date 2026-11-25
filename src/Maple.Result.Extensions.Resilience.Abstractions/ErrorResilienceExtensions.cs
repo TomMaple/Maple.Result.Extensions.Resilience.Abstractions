@@ -16,16 +16,72 @@ using System.Diagnostics.CodeAnalysis;
 namespace Maple.Results.Extensions.Resilience.Abstractions;
 
 /// <summary>
-///     Extension methods of <see cref="Error" /> that store and read how an operation that failed can be retried.
+///     Extension methods of <see cref="Error" /> that store and read how an operation that failed can be retried, and whether it may be.
 /// </summary>
 public static class ErrorResilienceExtensions
 {
     /// <summary>
-    ///     The members that read the retry hint of an <see cref="Error" />, and store it on a copy.
+    ///     The members that read the retry hint of an <see cref="Error" /> and whether it may be retried, and store them on a copy.
     /// </summary>
     /// <param name="error">The error.</param>
     extension(Error error)
     {
+        /// <summary>
+        ///     Tells whether the error says that the operation may be retried.
+        /// </summary>
+        /// <param name="timeProvider">
+        ///     The clock for a retry hint with a date without an offset, which is readable only while it is in the future (passed on to
+        ///     <see cref="TryGetRetryAfter" />); <see langword="null" /> means <see cref="TimeProvider.System" />.
+        /// </param>
+        /// <returns><see langword="true" /> if the error may be retried; otherwise <see langword="false" />.</returns>
+        /// <remarks>
+        ///     <para>The first rule that matches gives the answer:</para>
+        ///     <list type="number">
+        ///         <item>
+        ///             <description>
+        ///                 <b>The flag.</b> The value of <see cref="ResilienceMetadataKeys.Retryable" /> is a <see cref="bool" />: that value.
+        ///                 <see langword="true" /> makes any error retryable; <see langword="false" /> forbids a retry, also with a retry hint. A value
+        ///                 that is not a <see cref="bool" /> counts as absent.
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <description>
+        ///                 <b>The hint.</b> The retry hint is readable (<see cref="TryGetRetryAfter" />): <see langword="true" />, whatever the category
+        ///                 (e.g., a <see cref="ErrorCategory.Validation" /> error of a <c>413</c> response with <c>Retry-After</c>).
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <description>
+        ///                 <b>The category.</b> <see cref="ErrorCategory.Unavailable" />, <see cref="ErrorCategory.Timeout" /> or
+        ///                 <see cref="ErrorCategory.LimitExceeded" />: <see langword="true" />.
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <description>
+        ///                 Otherwise <see langword="false" />, also for <see cref="ErrorCategory.Critical" /> and
+        ///                 <see cref="ErrorCategory.NotImplemented" />.
+        ///             </description>
+        ///         </item>
+        ///     </list>
+        ///     <para>
+        ///         The answer describes the <b>error</b>. Whether the operation is safe to repeat (idempotent, RFC 9110, section 9.2.2) is for the
+        ///         caller to know: e.g., a payment that timed out may have been made.
+        ///     </para>
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">If the <paramref name="error" /> is <see langword="null" />.</exception>
+        public bool IsRetryable(TimeProvider? timeProvider = null)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+
+            if (error.TryGetMetadata<bool>(ResilienceMetadataKeys.Retryable, out var retryable))
+                return retryable;
+
+            if (error.TryGetRetryAfter(out _, timeProvider))
+                return true;
+
+            return error.Category is ErrorCategory.Unavailable or ErrorCategory.Timeout or ErrorCategory.LimitExceeded;
+        }
+
         /// <summary>
         ///     Reads the retry hint of the error.
         /// </summary>
@@ -145,6 +201,25 @@ public static class ErrorResilienceExtensions
 
             var builder = error.ToBuilder();
             builder.WithRetryAfter(delay, receivedAt);
+
+            return builder.Build();
+        }
+
+        /// <summary>
+        ///     Returns a copy of the error that stores whether the operation may be retried; the rules are those of
+        ///     <see cref="ErrorBuilderResilienceExtensions.WithRetryable" />.
+        /// </summary>
+        /// <param name="retryable">
+        ///     <see langword="true" /> makes the error retryable; <see langword="false" /> forbids a retry, also with a retry hint.
+        /// </param>
+        /// <returns>A new <see cref="Error" /> with the flag.</returns>
+        /// <exception cref="ArgumentNullException">If the <paramref name="error" /> is <see langword="null" />.</exception>
+        public Error WithRetryable(bool retryable)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+
+            var builder = error.ToBuilder();
+            builder.WithRetryable(retryable);
 
             return builder.Build();
         }
