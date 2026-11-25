@@ -10,6 +10,10 @@ The contracts shared by the resilience packages of [Maple.Result](https://github
 
 Check also:
 * [![Maple.Result](https://img.shields.io/nuget/vpre/Maple.Result?label=Maple.Result%20%E2%80%94%20nuget)](https://www.nuget.org/packages/Maple.Result/)
+* [![Maple.Result.Extensions.AspNetCore](https://img.shields.io/nuget/v/Maple.Result.Extensions.AspNetCore?label=Maple.Result.Extensions.AspNetCore%20%E2%80%94%20nuget)](https://www.nuget.org/packages/Maple.Result.Extensions.AspNetCore/)
+* [![Maple.Result.Extensions.MinimalApi](https://img.shields.io/nuget/v/Maple.Result.Extensions.MinimalApi?label=Maple.Result.Extensions.MinimalApi%20%E2%80%94%20nuget)](https://www.nuget.org/packages/Maple.Result.Extensions.MinimalApi/)
+* [![Maple.Result.Extensions.Functions.Worker](https://img.shields.io/nuget/v/Maple.Result.Extensions.Functions.Worker?label=Maple.Result.Extensions.Functions.Worker%20%E2%80%94%20nuget)](https://www.nuget.org/packages/Maple.Result.Extensions.Functions.Worker/)
+* [![Maple.Result.Extensions.HttpClient](https://img.shields.io/nuget/v/Maple.Result.Extensions.HttpClient?label=Maple.Result.Extensions.HttpClient%20%E2%80%94%20nuget)](https://www.nuget.org/packages/Maple.Result.Extensions.HttpClient/)
 * [![Maple.Result.Extensions.Resilience](https://img.shields.io/badge/Maple.Result.Extensions.Resilience%20%E2%80%94%20nuget-coming%20soon-lightgrey)](https://github.com/TomMaple/Maple.Result.Extensions.Resilience)
 
 > [!IMPORTANT]

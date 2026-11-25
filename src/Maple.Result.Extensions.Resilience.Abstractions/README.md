@@ -54,6 +54,8 @@ if (result.GetRetryAfter() is { } retryAfter)
 ## Related packages
 * [Maple.Result](https://www.nuget.org/packages/Maple.Result) — the *Result* pattern for .NET, which this package extends.
 * [Maple.Result.Extensions.Resilience](https://github.com/TomMaple/Maple.Result.Extensions.Resilience) — helpers for the retry pipeline of an application, with Polly behind them (coming soon).
+* [Maple.Result.Extensions.HttpClient](https://www.nuget.org/packages/Maple.Result.Extensions.HttpClient) — maps an `HttpClient` response to a *Result*; its version for 3.0 stores the `Retry-After` header of a response as the hint.
+* [Maple.Result.Extensions.AspNetCore](https://www.nuget.org/packages/Maple.Result.Extensions.AspNetCore), [Maple.Result.Extensions.MinimalApi](https://www.nuget.org/packages/Maple.Result.Extensions.MinimalApi), [Maple.Result.Extensions.Functions.Worker](https://www.nuget.org/packages/Maple.Result.Extensions.Functions.Worker) — map a *Result* to an HTTP response; their versions for 3.0 write the hint as the `Retry-After` header.
 
 ## License
 [MIT](https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/LICENSE)
