@@ -11,7 +11,6 @@
 using Maple.Results.Extensions.Resilience.Abstractions.Helpers;
 using System;
 using System.Globalization;
-using System.Linq;
 
 namespace Maple.Results.Extensions.Resilience.Abstractions;
 
@@ -78,9 +77,9 @@ public static class ErrorBuilderResilienceExtensions
         ///         use <see cref="WithRetryAfter(ErrorBuilder, TimeSpan, DateTimeOffset)" />, which also stores when the wait ends.
         ///     </para>
         ///     <para>
-        ///         The value is a <see cref="long" />. Every existing key that equals <see cref="ResilienceMetadataKeys.RetryAfterSeconds" /> or
-        ///         <see cref="ResilienceMetadataKeys.RetryAfterDate" /> ignoring case (e.g., <c>RetryAfterSeconds</c> taken from a response body)
-        ///         is removed first, so the hint replaces it.
+        ///         The value is a <see cref="long" />. It replaces an entry of <see cref="ResilienceMetadataKeys.RetryAfterSeconds" /> whatever the case
+        ///         of its key (e.g., <c>RetryAfterSeconds</c> taken from a response body), and an entry of <see cref="ResilienceMetadataKeys.RetryAfterDate" />
+        ///         in any case is removed.
         ///     </para>
         /// </remarks>
         /// <exception cref="ArgumentNullException">If the <paramref name="builder" /> is <see langword="null" />.</exception>
@@ -92,7 +91,7 @@ public static class ErrorBuilderResilienceExtensions
 
             var seconds = WholeSeconds.RoundUp(delay);
 
-            RemoveKeysIgnoringCase(builder, ResilienceMetadataKeys.RetryAfterSeconds, ResilienceMetadataKeys.RetryAfterDate);
+            builder.WithoutMetadata(ResilienceMetadataKeys.RetryAfterDate);
 
             return builder.WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, seconds);
         }
@@ -109,9 +108,9 @@ public static class ErrorBuilderResilienceExtensions
         /// <returns>The same <see cref="ErrorBuilder" /> instance.</returns>
         /// <remarks>
         ///     The value is a <see cref="string" /> in the format <c>yyyy-MM-dd'T'HH:mm:sszzz</c> (invariant culture) with the offset <c>+00:00</c>, e.g.,
-        ///     <c>2026-10-21T07:28:00+00:00</c>. Every existing key that equals <see cref="ResilienceMetadataKeys.RetryAfterSeconds" /> or
-        ///     <see cref="ResilienceMetadataKeys.RetryAfterDate" /> ignoring case (e.g., <c>RetryAfterDate</c> taken from a response body) is removed first,
-        ///     so the hint replaces it.
+        ///     <c>2026-10-21T07:28:00+00:00</c>. It replaces an entry of <see cref="ResilienceMetadataKeys.RetryAfterDate" /> whatever the case of its key
+        ///     (e.g., <c>RetryAfterDate</c> taken from a response body), and an entry of <see cref="ResilienceMetadataKeys.RetryAfterSeconds" /> in any case
+        ///     is removed.
         /// </remarks>
         /// <exception cref="ArgumentNullException">If the <paramref name="builder" /> is <see langword="null" />.</exception>
         public ErrorBuilder WithRetryAfter(DateTimeOffset retryAt)
@@ -120,7 +119,7 @@ public static class ErrorBuilderResilienceExtensions
 
             var text = FormatRetryAfterDate(retryAt);
 
-            RemoveKeysIgnoringCase(builder, ResilienceMetadataKeys.RetryAfterSeconds, ResilienceMetadataKeys.RetryAfterDate);
+            builder.WithoutMetadata(ResilienceMetadataKeys.RetryAfterSeconds);
 
             return builder.WithMetadata(ResilienceMetadataKeys.RetryAfterDate, text);
         }
@@ -151,7 +150,11 @@ public static class ErrorBuilderResilienceExtensions
         ///     </para>
         ///     <para>
         ///         When the sum is beyond <see cref="DateTimeOffset.MaxValue" />, only the seconds are stored: there is no instant to store, and this method
-        ///         does not throw for it, because it runs while a failure is handled. Every existing key that equals either key ignoring case is removed first.
+        ///         does not throw for it, because it runs while a failure is handled; an entry of <see cref="ResilienceMetadataKeys.RetryAfterDate" />
+        ///         in any case is removed then.
+        ///     </para>
+        ///     <para>
+        ///         Each key that is stored replaces an entry whatever the case of its key (e.g., <c>RetryAfterSeconds</c> taken from a response body).
         ///     </para>
         /// </remarks>
         /// <exception cref="ArgumentNullException">If the <paramref name="builder" /> is <see langword="null" />.</exception>
@@ -163,13 +166,12 @@ public static class ErrorBuilderResilienceExtensions
 
             var seconds = WholeSeconds.RoundUp(delay);
 
-            RemoveKeysIgnoringCase(builder, ResilienceMetadataKeys.RetryAfterSeconds, ResilienceMetadataKeys.RetryAfterDate);
             builder.WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, seconds);
 
             // Compared in whole seconds, so that the sum is calculated only when it is in range.
             var secondsToMaxValue = (DateTimeOffset.MaxValue.UtcTicks - receivedAt.UtcTicks) / TimeSpan.TicksPerSecond;
             if (seconds > secondsToMaxValue)
-                return builder;
+                return builder.WithoutMetadata(ResilienceMetadataKeys.RetryAfterDate);
 
             // In UTC: with a positive offset, the clock time of receivedAt could pass DateTimeOffset.MaxValue before the instant does.
             var receivedAtUtc = receivedAt.ToUniversalTime();
@@ -190,15 +192,13 @@ public static class ErrorBuilderResilienceExtensions
         /// </param>
         /// <returns>The same <see cref="ErrorBuilder" /> instance.</returns>
         /// <remarks>
-        ///     The value is a <see cref="bool" />. Every existing key that equals <see cref="ResilienceMetadataKeys.Retryable" /> ignoring case
-        ///     (e.g., <c>Retryable</c> taken from a response body) is removed first, so the flag replaces it. The retry hint is not changed.
+        ///     The value is a <see cref="bool" />. It replaces an entry of <see cref="ResilienceMetadataKeys.Retryable" /> whatever the case of its key
+        ///     (e.g., <c>Retryable</c> taken from a response body). The retry hint is not changed.
         /// </remarks>
         /// <exception cref="ArgumentNullException">If the <paramref name="builder" /> is <see langword="null" />.</exception>
         public ErrorBuilder WithRetryable(bool retryable)
         {
             ArgumentNullException.ThrowIfNull(builder);
-
-            RemoveKeysIgnoringCase(builder, ResilienceMetadataKeys.Retryable);
 
             return builder.WithMetadata(ResilienceMetadataKeys.Retryable, retryable);
         }
@@ -215,22 +215,6 @@ public static class ErrorBuilderResilienceExtensions
         var rounded = WholeSeconds.RoundUp(utc);
 
         return rounded.ToString(RetryAfterDateFormat, CultureInfo.InvariantCulture);
-    }
-
-    /// <summary>
-    ///     Removes the keys and every key that differs from them only in case: <see cref="ErrorBuilder.WithMetadata(string, object)" /> throws for a
-    ///     key that differs only in case from an existing one.
-    /// </summary>
-    /// <remarks>
-    ///     The builder does not expose its metadata, so the keys are read from a snapshot (<see cref="ErrorBuilder.Build" /> never throws), and
-    ///     <see cref="ErrorBuilder.WithoutMetadata(string)" /> removes each with its exact spelling.
-    /// </remarks>
-    private static void RemoveKeysIgnoringCase(ErrorBuilder builder, params string[] keys)
-    {
-        var snapshot = builder.Build();
-        var matchingKeys = snapshot.Metadata.Keys.Where(key => keys.Contains(key, StringComparer.OrdinalIgnoreCase));
-        foreach (var key in matchingKeys)
-            builder.WithoutMetadata(key);
     }
 
     #endregion
