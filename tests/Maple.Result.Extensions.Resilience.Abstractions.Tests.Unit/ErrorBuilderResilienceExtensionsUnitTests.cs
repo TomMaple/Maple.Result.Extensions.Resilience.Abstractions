@@ -66,17 +66,33 @@ public class ErrorBuilderResilienceExtensionsUnitTests
     }
 
     [Fact]
-    public void WithRetryAfterDelay_MaxValue_StoresSecondsRoundedUp()
+    public void WithRetryAfterDelay_MaxValue_StoresLargestWholeSecondsOfTimeSpan()
     {
-        // Arrange
+        // Arrange (rounded up, TimeSpan.MaxValue would be one second more than a TimeSpan holds)
         var builder = CreateBuilder();
-        var expectedSeconds = TimeSpan.MaxValue.Ticks / TimeSpan.TicksPerSecond + 1;
 
         // Act
         builder.WithRetryAfter(TimeSpan.MaxValue);
 
         // Assert
-        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(expectedSeconds);
+        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(922_337_203_685L);
+    }
+
+    [Fact]
+    public void WithRetryAfterDelay_MaxValue_IsReadBack()
+    {
+        // Arrange
+        var error = CreateBuilder()
+            .WithRetryAfter(TimeSpan.MaxValue)
+            .Build();
+
+        // Act
+        var found = error.TryGetRetryAfter(out var retryAfter);
+
+        // Assert
+        found.ShouldBeTrue();
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(922_337_203_685));
     }
 
     [Fact]
@@ -354,7 +370,259 @@ public class ErrorBuilderResilienceExtensionsUnitTests
 
     #endregion
 
-    #region both overloads
+    #region WithRetryAfter(TimeSpan, DateTimeOffset)
+
+    [Fact]
+    public void WithRetryAfterReceived_WholeSeconds_StoresSecondsAndEndOfWait()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromSeconds(120), new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+
+        // Assert
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(2);
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(120L);
+        metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:30:00+00:00");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_FractionOfDelay_AddsRoundedUpSeconds()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromMilliseconds(1_200), new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+
+        // Assert
+        var metadata = builder.Build().Metadata;
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(2L);
+        metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:28:02+00:00");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_FractionOfReceivedAt_RoundsDateUp()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromSeconds(120), new DateTimeOffset(2026, 10, 21, 7, 28, 0, 400, TimeSpan.Zero));
+
+        // Assert
+        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:30:01+00:00");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_ReceivedAtWithOffset_StoresUtcDate()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromSeconds(120), new DateTimeOffset(2026, 10, 21, 9, 28, 0, TimeSpan.FromHours(2)));
+
+        // Assert
+        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:30:00+00:00");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_ZeroDelay_StoresZeroAndReceivedAt()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.Zero, new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+
+        // Assert
+        var metadata = builder.Build().Metadata;
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(0L);
+        metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:28:00+00:00");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_PastReceivedAt_StoresPastDate()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromSeconds(30), new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero));
+
+        // Assert
+        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2000-01-01T00:00:30+00:00");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_SumBeyondMaxValue_StoresSecondsOnly()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        var receivedAt = DateTimeOffset.MaxValue.AddSeconds(-10);
+
+        // Act
+        var exception = Record.Exception(() => builder.WithRetryAfter(TimeSpan.FromMinutes(1), receivedAt));
+
+        // Assert
+        exception.ShouldBeNull();
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(1);
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(60L);
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_MaxDelay_StoresSecondsOnly()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        var exception = Record.Exception(() => builder.WithRetryAfter(TimeSpan.MaxValue, new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero)));
+
+        // Assert
+        exception.ShouldBeNull();
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(1);
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(922_337_203_685L);
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_PositiveOffsetNearMaxValue_StoresUtcDate()
+    {
+        // Arrange (the instant is in range, the clock time of the offset would not be)
+        var builder = CreateBuilder();
+        var receivedAt = new DateTimeOffset(9999, 12, 31, 23, 0, 0, TimeSpan.FromHours(14));
+
+        // Act
+        var exception = Record.Exception(() => builder.WithRetryAfter(TimeSpan.FromHours(10), receivedAt));
+
+        // Assert
+        exception.ShouldBeNull();
+        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("9999-12-31T19:00:00+00:00");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_SumEqualToLastWholeSecond_StoresDate()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+        var receivedAt = new DateTimeOffset(9999, 12, 31, 23, 59, 0, TimeSpan.Zero);
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromSeconds(59), receivedAt);
+
+        // Assert
+        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("9999-12-31T23:59:59+00:00");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_NegativeDelay_ThrowsAndLeavesBuilderUnchanged()
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithMetadata(ResilienceMetadataKeys.RetryAfterSeconds, 5L);
+
+        // Act
+        var exception = Record.Exception(() => builder.WithRetryAfter(TimeSpan.FromSeconds(-1), new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero)));
+
+        // Assert
+        exception.ShouldBeOfType<ArgumentOutOfRangeException>().ParamName.ShouldBe("delay");
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(1);
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(5L);
+    }
+
+    [Theory]
+    [InlineData("RetryAfterSeconds")]
+    [InlineData("RETRYAFTERSECONDS")]
+    [InlineData("retryAfterSeconds")]
+    [InlineData("RetryAfterDate")]
+    [InlineData("RETRYAFTERDATE")]
+    [InlineData("retryAfterDate")]
+    public void WithRetryAfterReceived_ExistingKey_ReplacesItWithoutThrowing(string existingKey)
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithMetadata(existingKey, 30)
+            .WithMetadata("traceId", "abc");
+
+        // Act
+        var exception = Record.Exception(() => builder.WithRetryAfter(TimeSpan.FromSeconds(120), new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero)));
+
+        // Assert
+        exception.ShouldBeNull();
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(3);
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(120L);
+        metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:30:00+00:00");
+        metadata["traceId"].ShouldBe("abc");
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_AnyDelay_ReturnsSameBuilder()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        var result = builder.WithRetryAfter(TimeSpan.FromSeconds(1), new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+
+        // Assert
+        result.ShouldBeSameAs(builder);
+    }
+
+    [Fact]
+    public void WithRetryAfterReceived_NullBuilder_ThrowsArgumentNullException()
+    {
+        // Arrange
+        ErrorBuilder builder = null!;
+
+        // Act
+        var exception = Record.Exception(() => builder.WithRetryAfter(TimeSpan.FromSeconds(1), new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero)));
+
+        // Assert
+        exception.ShouldBeOfType<ArgumentNullException>().ParamName.ShouldBe("builder");
+    }
+
+    [Fact]
+    public void WithRetryAfterDelay_AfterReceived_LeavesSecondsOnly()
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithRetryAfter(TimeSpan.FromSeconds(120), new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromSeconds(30));
+
+        // Assert
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(1);
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(30L);
+    }
+
+    [Fact]
+    public void WithRetryAfterDate_AfterReceived_LeavesDateOnly()
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithRetryAfter(TimeSpan.FromSeconds(120), new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+
+        // Act
+        builder.WithRetryAfter(new DateTimeOffset(2026, 10, 21, 8, 0, 0, TimeSpan.Zero));
+
+        // Assert
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(1);
+        metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T08:00:00+00:00");
+    }
+
+    #endregion
+
+    #region all overloads
 
     [Fact]
     public void WithRetryAfter_OtherMembers_LeavesThemUntouched()
@@ -365,6 +633,7 @@ public class ErrorBuilderResilienceExtensionsUnitTests
             .WithDetailTemplated("errors.unavailable", ("service", "orders"))
             .WithMetadata("traceId", "abc")
             .WithMetadata("limit", 100);
+
         var expected = builder.Build();
 
         // Act
@@ -389,6 +658,7 @@ public class ErrorBuilderResilienceExtensionsUnitTests
         // Arrange
         var builder = CreateBuilder()
             .WithMetadata("RetryAfterSeconds", 30);
+
         var builtBefore = builder.Build();
 
         // Act

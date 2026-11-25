@@ -21,38 +21,81 @@ using Maple.Results.Extensions.Resilience.Abstractions;
 ```
 
 ## Usage
-Store the delay, or the earliest time, to retry the operation with `WithRetryAfter` on an `ErrorBuilder`:
+### Storing the hint
+`WithRetryAfter` on an `ErrorBuilder`, or on an `Error` (which returns a changed copy), stores the hint. Which overload
+to use depends on what the code knows:
+
+| Written with | When | `retryAfterSeconds` | `retryAfterDate` |
+| --- | --- | --- | --- |
+| `WithRetryAfter(delay, receivedAt)` | a delay was **received** (a response, a rejection) | the delay | `receivedAt` + the delay |
+| `WithRetryAfter(retryAt)` | a date | absent | the date |
+| `WithRetryAfter(delay)` | a delay whose start is not known, e.g., an error that is created once and reused | the delay | absent |
+
 ```csharp
-// Retry-After: 120
+// Retry-After: 120, received now: the wait ends 120 s after the response
 var rateLimited = ErrorBuilder.LimitExceeded(typeUri, "The rate limit was exceeded.")
-    .WithRetryAfter(TimeSpan.FromSeconds(120))
+    .WithRetryAfter(TimeSpan.FromSeconds(120), receivedAt: timeProvider.GetUtcNow())
     .Build();
 
 // Retry-After: Wed, 21 Oct 2026 07:28:00 GMT
 var unavailable = ErrorBuilder.Unavailable(typeUri, "The service is unavailable.")
     .WithRetryAfter(new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero))
     .Build();
+
+// An error of the application, reused: a reader counts the delay from the moment it reads
+private static readonly Error Busy = Error.Unavailable(typeUri, "The service is busy.")
+    .WithRetryAfter(TimeSpan.FromSeconds(30));
 ```
 
-An error carries at most one hint: each call stores its own key and removes the other. It also removes the keys that
-differ from them only in case (e.g., `RetryAfterSeconds` taken from a response body), which `ErrorBuilder.WithMetadata`
-would reject.
+A delay counts from the moment it was received (RFC 9110). Stored with `receivedAt`, it keeps that moment, so whoever
+reads the error later (a second retry pipeline, an orchestrator, a service that passes the hint on) gets the time that
+is really left, not the full delay again. Don't use `receivedAt` for an error that is reused: its instant passes.
+
+Each call replaces both keys, also the ones that differ from them only in case (e.g., `RetryAfterSeconds` taken from a
+response body), which `ErrorBuilder.WithMetadata` would reject.
+
+### Reading the hint
+`TryGetRetryAfter` on an `Error`, or `GetRetryAfter` on a `Result` or `Result<T>`, returns a `RetryAfter`:
+```csharp
+if (error.TryGetRetryAfter(out var retryAfter))
+{
+    await Task.Delay(retryAfter.GetRemaining(), cancellationToken);
+}
+
+RetryAfter? hint = result.GetRetryAfter();  // null for a success, or without a readable hint
+```
+
+| Member | What it is | Who uses it |
+| --- | --- | --- |
+| `GetRemaining()` | The time that is left: until `RetryAt`, and zero once it has passed; without a `RetryAt`, the `Delay` | a retry pipeline |
+| `GetRemainingSeconds()` | The same in whole seconds, rounded up | a package that writes a `Retry-After` header |
+| `RetryAt` | When the wait ends (UTC); `null` for a delay whose start is not known | code that must not read the system clock, e.g., an orchestrator (a durable timer) |
+| `Delay` | The delay as the source gave it; `null` for a date | logging, diagnostics |
+| `Kind` | `Delay` or `Date`: which form the source gave | anything that has to tell them apart |
+
+`GetRemaining` and `GetRemainingSeconds` read the system clock; pass a `TimeProvider` to set “now” (e.g., in tests).
+
+* Both keys are read and combined: `Delay` comes from `retryAfterSeconds` and `RetryAt` from `retryAfterDate`. When
+  both are stored, the date says when the wait ends.
+* Seconds are readable as a whole number that is not negative, of any integral type, or a `decimal`, `double` or
+  `float` without a fraction: a JSON `120` comes back as any of them, depending on the deserializer. A fraction, a
+  negative value or a string is not readable.
+* A date is readable as RFC 3339 text (`2026-10-21T07:28:00+00:00`, `2026-10-21T07:28:00.5Z`), an HTTP-date
+  (`Wed, 21 Oct 2026 07:28:00 GMT`), a `DateTimeOffset` or a `DateTime`, also when it has passed. A date without an
+  offset (`2026-10-21T07:28:00`, or a `DateTime` of kind `Unspecified`) is assumed to be UTC, and is readable only while
+  it is in the future.
+* No stored value makes the readers throw: the values can come from another service.
 
 ## Metadata keys
-The keys are in `ResilienceMetadataKeys`. `Error.TryGetMetadata<T>` does not convert a value, so read each key with its
-type:
+The keys are in `ResilienceMetadataKeys`. The writers store these types; to read a key directly, use its type, because
+`Error.TryGetMetadata<T>` does not convert a value:
 
 | Key | Type | Value |
 | --- | --- | --- |
-| `retryAfterSeconds` | `long` | The delay in whole seconds, zero or more; a fraction is rounded up (1.2 s → `2`). |
-| `retryAfterDate` | `string` | The UTC time in whole seconds, `yyyy-MM-dd'T'HH:mm:sszzz`, e.g., `2026-10-21T07:28:00+00:00`; a fraction is rounded up. The offset is always `+00:00`, never `Z`. |
+| `retryAfterSeconds` | `long` | The delay as the source gave it, in whole seconds, zero or more; a fraction is rounded up (1.2 s → `2`). |
+| `retryAfterDate` | `string` | When the wait ends: the UTC time in whole seconds, `yyyy-MM-dd'T'HH:mm:sszzz`, e.g., `2026-10-21T07:28:00+00:00`; a fraction is rounded up. The offset is always `+00:00`, never `Z`. |
 
-```csharp
-if (rateLimited.TryGetMetadata<long>(ResilienceMetadataKeys.RetryAfterSeconds, out var seconds))
-{
-    // seconds == 120
-}
-```
+An error can carry both keys: then the date says when the wait ends, and the seconds what the source gave.
 
 The keys and their formats are a contract with other packages and with non-.NET clients that read a serialized error,
 so they do not change.
