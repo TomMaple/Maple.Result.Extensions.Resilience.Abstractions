@@ -672,6 +672,122 @@ public class ErrorBuilderResilienceExtensionsUnitTests
 
     #endregion
 
+    #region WithRetryable
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void WithRetryable_AnyFlag_StoresBool(bool retryable)
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        builder.WithRetryable(retryable);
+
+        // Assert
+        var error = builder.Build();
+        error.TryGetMetadata<bool>(ResilienceMetadataKeys.Retryable, out var stored).ShouldBeTrue();
+        stored.ShouldBe(retryable);
+    }
+
+    [Fact]
+    public void WithRetryable_SecondCall_ReplacesValue()
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithRetryable(true);
+
+        // Act
+        builder.WithRetryable(false);
+
+        // Assert
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(1);
+        metadata[ResilienceMetadataKeys.Retryable].ShouldBe(false);
+    }
+
+    [Theory]
+    [InlineData("Retryable")]
+    [InlineData("RETRYABLE")]
+    [InlineData("retryable")]
+    public void WithRetryable_KeyInOtherCase_ReplacesItWithoutThrowing(string existingKey)
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithMetadata(existingKey, "yes");
+
+        // Act
+        var exception = Record.Exception(() => builder.WithRetryable(true));
+
+        // Assert
+        exception.ShouldBeNull();
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(1);
+        metadata[ResilienceMetadataKeys.Retryable].ShouldBe(true);
+    }
+
+    [Fact]
+    public void WithRetryable_OtherMetadata_LeavesItUntouched()
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithRetryAfter(TimeSpan.FromSeconds(120))
+            .WithMetadata("traceId", "abc");
+
+        // Act
+        builder.WithRetryable(false);
+
+        // Assert
+        var metadata = builder.Build().Metadata;
+        metadata.Count.ShouldBe(3);
+        metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(120L);
+        metadata["traceId"].ShouldBe("abc");
+        metadata[ResilienceMetadataKeys.Retryable].ShouldBe(false);
+    }
+
+    [Fact]
+    public void WithRetryAfter_AfterWithRetryable_KeepsFlag()
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithRetryable(true);
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromSeconds(30));
+
+        // Assert
+        builder.Build().Metadata[ResilienceMetadataKeys.Retryable].ShouldBe(true);
+    }
+
+    [Fact]
+    public void WithRetryable_AnyFlag_ReturnsSameBuilder()
+    {
+        // Arrange
+        var builder = CreateBuilder();
+
+        // Act
+        var result = builder.WithRetryable(true);
+
+        // Assert
+        result.ShouldBeSameAs(builder);
+    }
+
+    [Fact]
+    public void WithRetryable_NullBuilder_ThrowsArgumentNullException()
+    {
+        // Arrange
+        ErrorBuilder builder = null!;
+
+        // Act
+        var exception = Record.Exception(() => builder.WithRetryable(true));
+
+        // Assert
+        exception.ShouldBeOfType<ArgumentNullException>().ParamName.ShouldBe("builder");
+    }
+
+    #endregion
+
     #region helper methods
 
     private static ErrorBuilder CreateBuilder()
