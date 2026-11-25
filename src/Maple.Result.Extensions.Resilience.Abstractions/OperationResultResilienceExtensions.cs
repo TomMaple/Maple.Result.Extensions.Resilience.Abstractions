@@ -18,31 +18,34 @@ namespace Maple.Results.Extensions.Resilience.Abstractions;
 /// </summary>
 public static class OperationResultResilienceExtensions
 {
-    /// <summary>
-    ///     Returns the retry hint of a failed result.
-    /// </summary>
     /// <param name="result">The result.</param>
-    /// <param name="timeProvider">
-    ///     The clock for a date without an offset, which is readable only while it is in the future (<see cref="TimeProvider.GetUtcNow" />);
-    ///     <see langword="null" /> means <see cref="TimeProvider.System" />.
-    /// </param>
-    /// <returns>
-    ///     The hint; <see langword="null" /> for a successful result, and for a failed one without a readable hint. The time that is left is
-    ///     <see cref="RetryAfter.GetRemaining" />.
-    /// </returns>
-    /// <remarks>
-    ///     The hint is read as <see cref="ErrorResilienceExtensions.TryGetRetryAfter" /> reads it.
-    /// </remarks>
-    /// <exception cref="ArgumentNullException">If the <paramref name="result" /> is <see langword="null" />.</exception>
-    public static RetryAfter? GetRetryAfter(this IOperationResult result, TimeProvider? timeProvider = null)
+    extension(IOperationResult result)
     {
-        ArgumentNullException.ThrowIfNull(result);
+        /// <summary>
+        ///     Returns the retry hint of a failed result.
+        /// </summary>
+        /// <param name="timeProvider">
+        ///     The clock for a date without an offset, which is readable only while it is in the future (<see cref="TimeProvider.GetUtcNow" />);
+        ///     <see langword="null" /> means <see cref="TimeProvider.System" />.
+        /// </param>
+        /// <returns>
+        ///     The hint; <see langword="null" /> for a successful result, and for a failed one without a readable hint. The time that is left is
+        ///     <see cref="RetryAfter.GetRemaining" />.
+        /// </returns>
+        /// <remarks>
+        ///     The hint is read as <see cref="ErrorResilienceExtensions.TryGetRetryAfter" /> reads it.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">If the <paramref name="result" /> is <see langword="null" />.</exception>
+        public RetryAfter? GetRetryAfter(TimeProvider? timeProvider = null)
+        {
+            ArgumentNullException.ThrowIfNull(result);
 
-        if (!result.TryGetError(out var error))
-            return null;
+            if (!result.TryGetError(out var error))
+                return null;
 
-        return error.TryGetRetryAfter(out var retryAfter, timeProvider)
-            ? retryAfter
-            : null;
+            return error.TryGetRetryAfter(out var retryAfter, timeProvider)
+                ? retryAfter
+                : null;
+        }
     }
 }
