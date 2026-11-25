@@ -19,13 +19,13 @@ namespace Maple.Results.Extensions.Resilience.Abstractions;
 /// <remarks>
 ///     <para>
 ///         An instance comes from <see cref="ErrorResilienceExtensions.TryGetRetryAfter" /> or
-///         <see cref="OperationResultResilienceExtensions.GetRetryAfter" />, and always holds a hint: <see cref="Delay" /> or <see cref="RetryAt" /> has a
-///         value, or both. An error without a hint gives <see langword="null" />.
+///         <see cref="OperationResultResilienceExtensions.GetRetryAfter" />, and always holds a hint: <see cref="Delay" /> or <see cref="RetryAt" />
+///         has a value, or both. An error without a hint gives <see langword="null" />.
 ///     </para>
 ///     <para>
 ///         Which member to use: a retry pipeline waits <see cref="GetRemaining" />; a package that writes a <c>Retry-After</c> header writes
-///         <see cref="GetRemainingSeconds" />. Code that must not read the system clock (e.g., an orchestrator, which is replayed) uses
-///         <see cref="RetryAt" /> as it is (e.g., as the time of a durable timer), or passes a <see cref="TimeProvider" /> of its own.
+///         <see cref="GetRemainingSeconds" />. Code that must not read the system clock (e.g., an orchestrator, which is replayed)
+///         uses <see cref="RetryAt" /> as it is (e.g., as the time of a durable timer), or passes a <see cref="TimeProvider" /> of its own.
 ///     </para>
 ///     <para>Two instances are equal when their <see cref="Delay" /> and <see cref="RetryAt" /> are equal (<see cref="RetryAt" /> as an instant).</para>
 /// </remarks>
@@ -75,8 +75,8 @@ public sealed record RetryAfter
             : RetryAfterKind.Date;
 
     /// <summary>
-    ///     When the wait ends, in UTC; <see langword="null" /> for a delay whose start is not known (stored with
-    ///     <see cref="ErrorBuilderResilienceExtensions.WithRetryAfter(ErrorBuilder, TimeSpan)" />).
+    ///     When the wait ends, in UTC; <see langword="null" /> for a delay whose start is not known
+    ///     (stored with <see cref="ErrorBuilderResilienceExtensions.WithRetryAfter(ErrorBuilder, TimeSpan)" />).
     /// </summary>
     /// <remarks>
     ///     It may be in the past: the wait is over. It does not depend on a clock, so it suits code that must not read the system clock.
@@ -90,8 +90,8 @@ public sealed record RetryAfter
     ///     The clock that gives “now” (<see cref="TimeProvider.GetUtcNow" />); <see langword="null" /> means <see cref="TimeProvider.System" />.
     /// </param>
     /// <returns>
-    ///     With a <see cref="RetryAt" />: the time from now until then, and <see cref="TimeSpan.Zero" /> once it has passed. Without one:
-    ///     <see cref="Delay" />, whatever the clock says.
+    ///     With a <see cref="RetryAt" />: the time from now until then, and <see cref="TimeSpan.Zero" /> once it has passed.
+    ///     Without one: <see cref="Delay" />, whatever the clock says.
     /// </returns>
     public TimeSpan GetRemaining(TimeProvider? timeProvider = null)
     {
@@ -113,13 +113,12 @@ public sealed record RetryAfter
     ///     The clock that gives “now” (<see cref="TimeProvider.GetUtcNow" />); <see langword="null" /> means <see cref="TimeProvider.System" />.
     /// </param>
     /// <returns>
-    ///     <see cref="GetRemaining" /> in whole seconds, rounded up; zero or more, and at most <c>922337203685</c>, the largest number of whole seconds
-    ///     of a <see cref="TimeSpan" />.
+    ///     <see cref="GetRemaining" /> in whole seconds, rounded up; zero or more, and at most <c>922337203685</c>,
+    ///     the largest number of whole seconds of a <see cref="TimeSpan" />.
     /// </returns>
     public long GetRemainingSeconds(TimeProvider? timeProvider = null)
     {
         var remaining = GetRemaining(timeProvider);
-
         return WholeSeconds.RoundUp(remaining);
     }
 }

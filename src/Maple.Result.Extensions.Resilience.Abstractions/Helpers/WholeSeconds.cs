@@ -19,7 +19,9 @@ internal static class WholeSeconds
 {
     #region consts
 
-    /// <summary>The largest number of whole seconds that a <see cref="TimeSpan" /> holds: 922,337,203,685.</summary>
+    /// <summary>
+    ///     The largest number of whole seconds that a <see cref="TimeSpan" /> holds: 922,337,203,685.
+    /// </summary>
     public const long MaxSeconds = long.MaxValue / TimeSpan.TicksPerSecond;
 
     #endregion
@@ -32,22 +34,22 @@ internal static class WholeSeconds
     ///         Integer arithmetic: <see cref="TimeSpan.TotalSeconds" /> is a <see cref="double" />, which cannot hold every tick of a long duration.
     ///     </para>
     ///     <para>
-    ///         The cap: rounded up, a duration in the last second before <see cref="TimeSpan.MaxValue" /> would be one second more than a
-    ///         <see cref="TimeSpan" /> holds, and the reader would not accept the stored value.
+    ///         The cap: rounded up, a duration in the last second before <see cref="TimeSpan.MaxValue" /> would be one second more than
+    ///         a <see cref="TimeSpan" /> holds, and the reader would not accept the stored value.
     ///     </para>
     /// </remarks>
     public static long RoundUp(TimeSpan duration)
     {
         var seconds = Math.DivRem(duration.Ticks, TimeSpan.TicksPerSecond, out var fractionTicks);
-        if (fractionTicks == 0)
-            return seconds;
 
-        return Math.Min(seconds + 1, MaxSeconds);
+        return fractionTicks == 0
+            ? seconds
+            : Math.Min(seconds + 1, MaxSeconds);
     }
 
     /// <summary>
-    ///     Rounds a fraction of a second up to the next whole second; in the last second before <see cref="DateTimeOffset.MaxValue" />, where that would
-    ///     overflow, the fraction is dropped.
+    ///     Rounds a fraction of a second up to the next whole second; in the last second before <see cref="DateTimeOffset.MaxValue" />,
+    ///     where that would overflow, the fraction is dropped.
     /// </summary>
     public static DateTimeOffset RoundUp(DateTimeOffset value)
     {

@@ -21,8 +21,8 @@ public enum RetryAfterKind
     Delay,
 
     /// <summary>
-    ///     The source gave a date, e.g., <c>Retry-After: Wed, 21 Oct 2026 07:28:00 GMT</c>; <see cref="RetryAfter.Delay" /> is <see langword="null" /> and
-    ///     <see cref="RetryAfter.RetryAt" /> has a value.
+    ///     The source gave a date, e.g., <c>Retry-After: Wed, 21 Oct 2026 07:28:00 GMT</c>;
+    ///     <see cref="RetryAfter.Delay" /> is <see langword="null" /> and <see cref="RetryAfter.RetryAt" /> has a value.
     /// </summary>
     Date,
 }
