@@ -9,6 +9,7 @@
  */
 
 using System;
+using System.Linq;
 
 namespace Maple.Results.Extensions.Resilience.Abstractions.Tests.Unit;
 
@@ -179,6 +180,24 @@ public class ErrorBuilderResilienceExtensionsUnitTests
         metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(120L);
     }
 
+    [Theory]
+    [InlineData("RetryAfterSeconds", "RetryAfterDate")]
+    [InlineData("RETRYAFTERSECONDS", "RETRYAFTERDATE")]
+    public void WithRetryAfterDelay_CaseVariantsOfKeys_StoresKeysSpelledAsConstants(string secondsKey, string dateKey)
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithMetadata(secondsKey, 30)
+            .WithMetadata(dateKey, "2026-10-21T07:28:00+00:00")
+            .WithMetadata("traceId", "abc");
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromSeconds(120));
+
+        // Assert
+        GetStoredKeys(builder).ShouldBe(new[] { ResilienceMetadataKeys.RetryAfterSeconds, "traceId" });
+    }
+
     [Fact]
     public void WithRetryAfterDelay_ValidDelay_ReturnsSameBuilder()
     {
@@ -340,6 +359,24 @@ public class ErrorBuilderResilienceExtensionsUnitTests
         var metadata = builder.Build().Metadata;
         metadata.Count.ShouldBe(1);
         metadata[ResilienceMetadataKeys.RetryAfterDate].ShouldBe("2026-10-21T07:28:00+00:00");
+    }
+
+    [Theory]
+    [InlineData("RetryAfterSeconds", "RetryAfterDate")]
+    [InlineData("RETRYAFTERSECONDS", "RETRYAFTERDATE")]
+    public void WithRetryAfterDate_CaseVariantsOfKeys_StoresKeysSpelledAsConstants(string secondsKey, string dateKey)
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithMetadata(secondsKey, 30)
+            .WithMetadata(dateKey, "2026-10-21T07:28:00+00:00")
+            .WithMetadata("traceId", "abc");
+
+        // Act
+        builder.WithRetryAfter(new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+
+        // Assert
+        GetStoredKeys(builder).ShouldBe(new[] { ResilienceMetadataKeys.RetryAfterDate, "traceId" });
     }
 
     [Fact]
@@ -562,6 +599,45 @@ public class ErrorBuilderResilienceExtensionsUnitTests
         metadata["traceId"].ShouldBe("abc");
     }
 
+    [Theory]
+    [InlineData("RetryAfterSeconds", "RetryAfterDate")]
+    [InlineData("RETRYAFTERSECONDS", "RETRYAFTERDATE")]
+    public void WithRetryAfterReceived_CaseVariantsOfKeys_StoresKeysSpelledAsConstants(string secondsKey, string dateKey)
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithMetadata(secondsKey, 30)
+            .WithMetadata(dateKey, "2026-10-21T07:28:00+00:00")
+            .WithMetadata("traceId", "abc");
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromSeconds(120), new DateTimeOffset(2026, 10, 21, 7, 28, 0, TimeSpan.Zero));
+
+        // Assert
+        GetStoredKeys(builder).ShouldBe(new[] { ResilienceMetadataKeys.RetryAfterDate, ResilienceMetadataKeys.RetryAfterSeconds, "traceId" });
+    }
+
+    [Theory]
+    [InlineData("retryAfterDate")]
+    [InlineData("RetryAfterDate")]
+    [InlineData("RETRYAFTERDATE")]
+    public void WithRetryAfterReceived_SumBeyondMaxValueWithDateSetBefore_RemovesDate(string dateKey)
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithMetadata(dateKey, "2026-10-21T07:28:00+00:00")
+            .WithMetadata("traceId", "abc");
+
+        var receivedAt = DateTimeOffset.MaxValue.AddSeconds(-10);
+
+        // Act
+        builder.WithRetryAfter(TimeSpan.FromMinutes(1), receivedAt);
+
+        // Assert
+        GetStoredKeys(builder).ShouldBe(new[] { ResilienceMetadataKeys.RetryAfterSeconds, "traceId" });
+        builder.Build().Metadata[ResilienceMetadataKeys.RetryAfterSeconds].ShouldBe(60L);
+    }
+
     [Fact]
     public void WithRetryAfterReceived_AnyDelay_ReturnsSameBuilder()
     {
@@ -727,6 +803,23 @@ public class ErrorBuilderResilienceExtensionsUnitTests
         metadata[ResilienceMetadataKeys.Retryable].ShouldBe(true);
     }
 
+    [Theory]
+    [InlineData("Retryable")]
+    [InlineData("RETRYABLE")]
+    public void WithRetryable_CaseVariantsOfKeys_StoresKeysSpelledAsConstants(string flagKey)
+    {
+        // Arrange
+        var builder = CreateBuilder()
+            .WithMetadata(flagKey, "yes")
+            .WithMetadata("traceId", "abc");
+
+        // Act
+        builder.WithRetryable(true);
+
+        // Assert
+        GetStoredKeys(builder).ShouldBe(new[] { ResilienceMetadataKeys.Retryable, "traceId" });
+    }
+
     [Fact]
     public void WithRetryable_OtherMetadata_LeavesItUntouched()
     {
@@ -792,6 +885,10 @@ public class ErrorBuilderResilienceExtensionsUnitTests
 
     private static ErrorBuilder CreateBuilder()
         => ErrorBuilder.Unavailable(TypeUri, Title);
+
+    // The keys as they are stored, in ordinal order: the lookups of the metadata ignore the case, so they do not show the spelling.
+    private static string[] GetStoredKeys(ErrorBuilder builder)
+        => [.. builder.Build().Metadata.Keys.Order(StringComparer.Ordinal)];
 
     #endregion
 }

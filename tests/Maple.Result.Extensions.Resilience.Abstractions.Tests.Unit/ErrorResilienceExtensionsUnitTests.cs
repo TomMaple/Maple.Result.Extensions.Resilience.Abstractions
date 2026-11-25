@@ -294,19 +294,23 @@ public class ErrorResilienceExtensionsUnitTests
         retryAfter.ShouldBeNull();
     }
 
-    [Fact]
-    public void TryGetRetryAfter_KeyWithOtherSpelling_ReturnsFalse()
+    [Theory]
+    [InlineData("RetryAfterSeconds")]
+    [InlineData("RETRYAFTERSECONDS")]
+    [InlineData("retryafterseconds")]
+    public void TryGetRetryAfter_SecondsKeyInOtherCase_ReadsDelay(string key)
     {
         // Arrange
         var error = CreateError()
-            .WithMetadata("RetryAfterSeconds", 120L);
+            .WithMetadata(key, 120L);
 
         // Act
         var found = error.TryGetRetryAfter(out var retryAfter, Clock);
 
         // Assert
-        found.ShouldBeFalse();
-        retryAfter.ShouldBeNull();
+        found.ShouldBeTrue();
+        retryAfter.ShouldNotBeNull();
+        retryAfter.Delay.ShouldBe(TimeSpan.FromSeconds(120));
     }
 
     #endregion
@@ -539,6 +543,25 @@ public class ErrorResilienceExtensionsUnitTests
         // Assert
         found.ShouldBeFalse();
         retryAfter.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("RetryAfterDate")]
+    [InlineData("RETRYAFTERDATE")]
+    [InlineData("retryafterdate")]
+    public void TryGetRetryAfter_DateKeyInOtherCase_ReadsDate(string key)
+    {
+        // Arrange
+        var error = CreateError()
+            .WithMetadata(key, "2026-10-21T07:28:00+00:00");
+
+        // Act
+        var found = error.TryGetRetryAfter(out var retryAfter, Clock);
+
+        // Assert
+        found.ShouldBeTrue();
+        retryAfter.ShouldNotBeNull();
+        retryAfter.RetryAt.ShouldBe(InTwentyEightMinutes);
     }
 
     #endregion
@@ -988,18 +1011,20 @@ public class ErrorResilienceExtensionsUnitTests
         isRetryable.ShouldBeTrue();
     }
 
-    [Fact]
-    public void IsRetryable_KeyWithOtherSpelling_CountsAsAbsent()
+    [Theory]
+    [InlineData("Retryable")]
+    [InlineData("RETRYABLE")]
+    public void IsRetryable_FlagKeyInOtherCase_ReturnsItsValue(string key)
     {
         // Arrange
         var error = CreateError(ErrorCategory.Unavailable)
-            .WithMetadata("Retryable", false);
+            .WithMetadata(key, false);
 
         // Act
         var isRetryable = error.IsRetryable(Clock);
 
         // Assert
-        isRetryable.ShouldBeTrue();
+        isRetryable.ShouldBeFalse();
     }
 
     [Theory]

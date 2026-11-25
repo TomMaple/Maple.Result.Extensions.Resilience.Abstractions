@@ -40,8 +40,9 @@ public static class ErrorResilienceExtensions
         ///         <item>
         ///             <description>
         ///                 <b>The flag.</b> The value of <see cref="ResilienceMetadataKeys.Retryable" /> is a <see cref="bool" />: that value.
-        ///                 <see langword="true" /> makes any error retryable; <see langword="false" /> forbids a retry, also with a retry hint. A value
-        ///                 that is not a <see cref="bool" /> counts as absent.
+        ///                 <see langword="true" /> makes any error retryable; <see langword="false" /> forbids a retry, also with a retry hint. The key
+        ///                 is found whatever its case (e.g., <c>Retryable</c> taken from a response body). A value that is not a <see cref="bool" />
+        ///                 counts as absent.
         ///             </description>
         ///         </item>
         ///         <item>
@@ -124,7 +125,8 @@ public static class ErrorResilienceExtensions
         ///         instant is in the future.
         ///     </para>
         ///     <para>
-        ///         The keys are looked up with their exact spelling. No stored value makes this method throw: the values can come from another service.
+        ///         A key is found whatever its case (e.g., <c>RetryAfterSeconds</c> or <c>RETRYAFTERDATE</c> taken from a response body). No stored value
+        ///         makes this method throw: the values can come from another service.
         ///     </para>
         /// </remarks>
         /// <exception cref="ArgumentNullException">If the <paramref name="error" /> is <see langword="null" />.</exception>
