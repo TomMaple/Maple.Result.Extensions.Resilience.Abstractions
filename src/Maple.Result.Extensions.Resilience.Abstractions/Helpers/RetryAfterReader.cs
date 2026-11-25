@@ -31,8 +31,8 @@ internal static class RetryAfterReader
     private const string Rfc3339Format = "yyyy-MM-dd'T'HH:mm:ss.fffffff";
 
     /// <summary>
-    ///     The shape of an RFC 3339 date and time (section 5.6): an upper-case <c>T</c>, any fraction of a second, and <c>Z</c>, a numeric offset or no
-    ///     offset.
+    ///     The shape of an RFC 3339 date and time (section 5.6): an upper-case <c>T</c>, any fraction of a second, and <c>Z</c>, a numeric offset or
+    ///     no offset.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -40,8 +40,8 @@ internal static class RetryAfterReader
     ///         <c>$</c>, which matches before a final line break too.
     ///     </para>
     ///     <para>
-    ///         A plain field rather than <c>[GeneratedRegex]</c>: the code coverage of CI counts the generated code, which the tests of this package do not
-    ///         exercise. Under Native AOT the pattern runs on the interpreter, which is fast enough for one short text per call.
+    ///         A plain field rather than <c>[GeneratedRegex]</c>: the code coverage of CI counts the generated code, which the tests of this package
+    ///         do not exercise. Under Native AOT the pattern runs on the interpreter, which is fast enough for one short text per call.
     ///     </para>
     /// </remarks>
     private static readonly Regex Rfc3339Shape = new(
@@ -59,8 +59,8 @@ internal static class RetryAfterReader
     /// <param name="value">The stored value.</param>
     /// <param name="instant">The instant of the value.</param>
     /// <param name="hasOffset">
-    ///     Whether the value names its offset (<c>Z</c>, <c>GMT</c>, a numeric offset, a <see cref="DateTimeOffset" />, a <see cref="DateTime" /> of
-    ///     kind <see cref="DateTimeKind.Utc" /> or <see cref="DateTimeKind.Local" />); otherwise, the instant assumes UTC.
+    ///     Whether the value names its offset (<c>Z</c>, <c>GMT</c>, a numeric offset, a <see cref="DateTimeOffset" />,
+    ///     a <see cref="DateTime" /> of kind <see cref="DateTimeKind.Utc" /> or <see cref="DateTimeKind.Local" />); otherwise, the instant assumes UTC.
     /// </param>
     /// <returns><see langword="true" /> if the value has one of the accepted forms.</returns>
     public static bool TryReadDate(object? value, out DateTimeOffset instant, out bool hasOffset)
@@ -100,98 +100,67 @@ internal static class RetryAfterReader
     }
 
     /// <summary>
-    ///     Reads a stored <see cref="ResilienceMetadataKeys.RetryAfterSeconds" /> value: a whole number of seconds that is not negative and fits a
-    ///     <see cref="TimeSpan" />, of any integral type, or a <see cref="decimal" />, <see cref="double" /> or <see cref="float" /> without a fraction.
+    ///     Reads a stored <see cref="ResilienceMetadataKeys.RetryAfterSeconds" /> value: a whole number of seconds that is not negative and
+    ///     fits a <see cref="TimeSpan" />, of any integral type, or a <see cref="decimal" />, <see cref="double" /> or <see cref="float" /> without a fraction.
     /// </summary>
     /// <param name="value">The stored value.</param>
     /// <param name="delay">The delay, or <see cref="TimeSpan.Zero" /> if the value is not readable.</param>
     /// <returns><see langword="true" /> if the value is readable.</returns>
     public static bool TryReadSeconds(object? value, out TimeSpan delay)
     {
-        switch (value)
+        // -1 for a value that is not readable: TryFromSeconds rejects every negative number. Every type of the list widens to long.
+        long seconds = value switch
         {
-            case sbyte number:
-                return TryFromSeconds(number, out delay);
+            sbyte number => number,
+            byte number => number,
+            short number => number,
+            ushort number => number,
+            int number => number,
+            uint number => number,
+            long number => number,
+            ulong number and <= WholeSeconds.MaxSeconds => (long)number,
+            decimal number when IsWholeSeconds(number) => (long)number,
+            double number when IsWholeSeconds(number) => (long)number,
+            float number when IsWholeSeconds(number) => (long)number,
+            _ => -1
+        };
 
-            case byte number:
-                return TryFromSeconds(number, out delay);
-
-            case short number:
-                return TryFromSeconds(number, out delay);
-
-            case ushort number:
-                return TryFromSeconds(number, out delay);
-
-            case int number:
-                return TryFromSeconds(number, out delay);
-
-            case uint number:
-                return TryFromSeconds(number, out delay);
-
-            case long number:
-                return TryFromSeconds(number, out delay);
-
-            case ulong number:
-                var ulongSeconds = number <= WholeSeconds.MaxSeconds
-                    ? (long)number
-                    : -1;
-
-                return TryFromSeconds(ulongSeconds, out delay);
-
-            case decimal number:
-                var isWholeDecimal = decimal.IsInteger(number) && number is >= 0 and <= WholeSeconds.MaxSeconds;
-                var decimalSeconds = isWholeDecimal
-                    ? (long)number
-                    : -1;
-
-                return TryFromSeconds(decimalSeconds, out delay);
-
-            case double number:
-                return TryFromWholeDouble(number, out delay);
-
-            case float number:
-                return TryFromWholeDouble(number, out delay);
-
-            default:
-                delay = TimeSpan.Zero;
-
-                return false;
-        }
+        return TryFromSeconds(seconds, out delay);
     }
 
     #region helper methods
+
+    private static bool IsWholeSeconds(decimal number)
+        => decimal.IsInteger(number) && number is >= 0 and <= WholeSeconds.MaxSeconds;
+
+    /// <summary>
+    ///     Whether the number is a whole number of seconds that a <see cref="TimeSpan" /> holds;
+    ///     a <see cref="float" /> widens to a <see cref="double" /> exactly.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="double.IsInteger" /> is <see langword="false" /> for NaN and the infinities; <c>-0.0</c> is a whole number that is not negative.
+    /// </remarks>
+    private static bool IsWholeSeconds(double number)
+        => double.IsInteger(number) && number is >= 0 and <= WholeSeconds.MaxSeconds;
 
     private static bool TryFromSeconds(long seconds, out TimeSpan delay)
     {
         if (seconds is < 0 or > WholeSeconds.MaxSeconds)
         {
             delay = TimeSpan.Zero;
-
             return false;
         }
 
         delay = TimeSpan.FromTicks(seconds * TimeSpan.TicksPerSecond);
-
         return true;
-    }
-
-    private static bool TryFromWholeDouble(double number, out TimeSpan delay)
-    {
-        // IsInteger is false for NaN and the infinities; -0.0 is a whole number that is not negative.
-        var isWholeNumber = double.IsInteger(number) && number is >= 0 and <= WholeSeconds.MaxSeconds;
-        var seconds = isWholeNumber
-            ? (long)number
-            : -1;
-
-        return TryFromSeconds(seconds, out delay);
     }
 
     /// <summary>
     ///     Parses an HTTP-date in the preferred format of RFC 9110; the obsolete formats are not accepted.
     /// </summary>
     /// <remarks>
-    ///     The parse alone ignores the case of the names; formatting the instant back and comparing the texts makes the match exact (the case, the
-    ///     padding and the day of the week).
+    ///     The parse alone ignores the case of the names; formatting the instant back and comparing the texts makes the match exact
+    ///     (the case, the padding and the day of the week).
     /// </remarks>
     private static bool TryParseHttpDate(string text, out DateTimeOffset instant, out bool hasOffset)
     {
@@ -208,9 +177,9 @@ internal static class RetryAfterReader
     ///     Parses an RFC 3339 date and time (section 5.6) with an upper-case <c>T</c> and <c>Z</c>, any fraction of a second, and an optional offset.
     /// </summary>
     /// <remarks>
-    ///     The text is matched against <see cref="Rfc3339Shape" /> first, because the parse methods of .NET alone accept too much (e.g., other
-    ///     separators, a missing time or a culture-specific format). The parse then checks the ranges (e.g., the 30th of February, an offset beyond
-    ///     ±14 hours, or an instant outside the range of <see cref="DateTimeOffset" />) without throwing.
+    ///     The text is matched against <see cref="Rfc3339Shape" /> first, because the parse methods of .NET alone accept too much
+    ///     (e.g., other separators, a missing time or a culture-specific format). The parse then checks the ranges
+    ///     (e.g., the 30th of February, an offset beyond ±14 hours, or an instant outside the range of <see cref="DateTimeOffset" />) without throwing.
     /// </remarks>
     private static bool TryParseRfc3339(string text, out DateTimeOffset instant, out bool hasOffset)
     {
@@ -236,7 +205,6 @@ internal static class RetryAfterReader
         if (!hasOffset)
         {
             var normalized = $"{dateTime}.{fractionText}";
-
             return DateTimeOffset.TryParseExact(normalized, Rfc3339Format, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out instant);
         }
 
