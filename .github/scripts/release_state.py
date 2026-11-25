@@ -6,9 +6,13 @@ Usage:
 
 Reads the versions on nuget.org and the assets of the GitHub release (`gh api`; needs GH_TOKEN and GH_REPO), compares
 them with the packages in <packages-dir>, and prints step outputs for "$GITHUB_OUTPUT":
-  action=noop|publish   noop: the version is on NuGet and every package is attached to the release.
+  action=noop|publish   noop: the version is on NuGet, and every package and the attestation bundle are attached to
+                        the release.
   push=true|false       push to NuGet (the version is not there yet).
   upload=<names>        the packages missing from the release, space-separated.
+  bundle=<name>         the name to attach the attestation bundle as (`<package>.sigstore.json`), when the release does
+                        not have it yet; empty otherwise. An attached bundle is never replaced, and its digest is not
+                        compared: each attestation of the same package is valid.
 Exits with an error instead of attaching a package that differs from what is already published:
 - an asset on the release has a different SHA-256 than the package built here;
 - the version is already on NuGet, but the package was built in this run attempt (attempt 1 of a version published
@@ -28,15 +32,26 @@ NUGET_INDEX = "https://api.nuget.org/v3-flatcontainer/{id}/index.json"
 PACKAGE_ID = "maple.result.extensions.resilience.abstractions"
 
 
-def decide(on_nuget, local, assets, rebuilt):
-    """Returns (action, push, upload) or raises ValueError.
+def bundle_name(local):
+    """The asset name of the attestation bundle: the name of the .nupkg with `.sigstore.json` instead of `.nupkg`.
+
+    Scorecard (Signed-Releases) counts a release asset with this extension as a signature.
+    """
+    nupkg = next(name for name in sorted(local) if name.endswith(".nupkg"))
+    return nupkg.removesuffix(".nupkg") + ".sigstore.json"
+
+
+def decide(on_nuget, local, assets, rebuilt, bundle):
+    """Returns (action, push, upload, bundle to attach or "") or raises ValueError.
 
     local:  {file name: sha256} of the packages built for this release.
     assets: {file name: sha256 or None} already attached to the release (None: digest unknown).
+    bundle: the asset name of the attestation bundle (bundle_name).
     """
     missing = sorted(name for name in local if name not in assets)
-    if on_nuget and not missing:
-        return "noop", False, []
+    attach = "" if bundle in assets else bundle
+    if on_nuget and not missing and not attach:
+        return "noop", False, [], ""
 
     mismatched = sorted(
         name for name in local if name in assets and assets[name] is not None and assets[name] != local[name])
@@ -52,7 +67,7 @@ def decide(on_nuget, local, assets, rebuilt):
             "package that was pushed. Use 'Re-run failed jobs' (it reuses the first build), or attach the original "
             "package to the release by hand.")
 
-    return "publish", not on_nuget, missing
+    return "publish", not on_nuget, missing, attach
 
 
 def sha256(path):
@@ -101,15 +116,17 @@ def main(args):
           f"package built in this attempt: {rebuilt} (build {build_attempt}, run {run_attempt})", file=sys.stderr)
 
     try:
-        action, push, upload = decide(on_nuget, local, assets, rebuilt)
+        action, push, upload, bundle = decide(on_nuget, local, assets, rebuilt, bundle_name(local))
     except ValueError as error:
         sys.exit(f"::error::{error}")
 
     if action == "noop":
-        print(f"::notice::{tag} is already published (NuGet and the release assets); nothing to do.", file=sys.stderr)
+        print(f"::notice::{tag} is already published (NuGet, the packages and the attestation bundle on the release); "
+              "nothing to do.", file=sys.stderr)
     print(f"action={action}")
     print(f"push={str(push).lower()}")
     print(f"upload={' '.join(upload)}")
+    print(f"bundle={bundle}")
 
 
 if __name__ == "__main__":

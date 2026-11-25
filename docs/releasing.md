@@ -27,14 +27,17 @@ Pushes to `main` never publish. The CI workflow only builds, tests and uploads a
 1. **Publish:** *Publish release* creates the tag `vX.Y.Z` and triggers the *Publish* workflow. Its `build` job packs
    that version with a read-only token; its `publish` job runs in the `nuget` environment (deployments limited to
    `v*` tags), attests the build provenance of the `.nupkg`, pushes it to NuGet (trusted publishing) and attaches the
-   `.nupkg`/`.snupkg` to the release.
+   `.nupkg`/`.snupkg` to the release, with the Sigstore bundle of the attestation (`<package>.sigstore.json`). The
+   attestation is in GitHub’s attestation store as well, but OpenSSF Scorecard (*Signed-Releases*) counts only the
+   assets of a release.
 1. **Verify** the attestation of the package attached to the release (the file on nuget.org carries an extra
-   repository signature, so its digest differs). The command hashes a local file, so download the package first;
-   without it, it fails with `Loading digest for … failed`:
+   repository signature, so its digest differs), from the attestation store and from the attached bundle. The command
+   hashes a local file, so download the package first; without it, it fails with `Loading digest for … failed`:
 
 	```
-	gh release download vX.Y.Z --repo TomMaple/Maple.Result.Extensions.Resilience.Abstractions --pattern '*.nupkg'
+	gh release download vX.Y.Z --repo TomMaple/Maple.Result.Extensions.Resilience.Abstractions --pattern '*.nupkg' --pattern '*.sigstore.json'
 	gh attestation verify Maple.Result.Extensions.Resilience.Abstractions.X.Y.Z.nupkg --repo TomMaple/Maple.Result.Extensions.Resilience.Abstractions
+	gh attestation verify Maple.Result.Extensions.Resilience.Abstractions.X.Y.Z.nupkg --repo TomMaple/Maple.Result.Extensions.Resilience.Abstractions --bundle Maple.Result.Extensions.Resilience.Abstractions.X.Y.Z.sigstore.json
 	```
 
 	It prints the result only in a terminal; in a script, check its exit code (0 when the attestation is valid) or pass
