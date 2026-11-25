@@ -55,6 +55,9 @@ public static class ErrorBuilderResilienceExtensions
 
     #endregion
 
+    /// <summary>
+    ///     The members that store the retry hint on an <see cref="ErrorBuilder" />.
+    /// </summary>
     /// <param name="builder">The builder of the error.</param>
     extension(ErrorBuilder builder)
     {

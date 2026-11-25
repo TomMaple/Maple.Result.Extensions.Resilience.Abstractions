@@ -18,6 +18,9 @@ namespace Maple.Results.Extensions.Resilience.Abstractions;
 /// </summary>
 public static class OperationResultResilienceExtensions
 {
+    /// <summary>
+    ///     The members that read the retry hint of a failed <see cref="IOperationResult" />.
+    /// </summary>
     /// <param name="result">The result.</param>
     extension(IOperationResult result)
     {

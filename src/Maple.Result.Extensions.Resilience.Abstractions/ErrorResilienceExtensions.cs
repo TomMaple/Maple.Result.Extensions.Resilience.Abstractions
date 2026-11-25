@@ -20,6 +20,9 @@ namespace Maple.Results.Extensions.Resilience.Abstractions;
 /// </summary>
 public static class ErrorResilienceExtensions
 {
+    /// <summary>
+    ///     The members that read the retry hint of an <see cref="Error" />, and store it on a copy.
+    /// </summary>
     /// <param name="error">The error.</param>
     extension(Error error)
     {
