@@ -19,7 +19,7 @@ The arguments are checked before the builder is changed: a call that throws leav
 
 
 ## WithRetryAfter(ErrorBuilder, DateTimeOffset)
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorBuilderResilienceExtensions.cs#L116" target="_blank">ErrorBuilderResilienceExtensions.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorBuilderResilienceExtensions.cs#L116" target="_blank">ErrorBuilderResilienceExtensions.cs</a>
 
 Stores the earliest time to retry the operation under [RetryAfterDate](../ResilienceMetadataKeys.md), and removes the delay of [RetryAfterSeconds](../ResilienceMetadataKeys.md).
 
@@ -55,7 +55,7 @@ var error = ErrorBuilder.Unavailable(typeUri, "The service is unavailable.")
 
 
 ## WithRetryAfter(ErrorBuilder, TimeSpan, DateTimeOffset)
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorBuilderResilienceExtensions.cs#L162" target="_blank">ErrorBuilderResilienceExtensions.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorBuilderResilienceExtensions.cs#L162" target="_blank">ErrorBuilderResilienceExtensions.cs</a>
 
 Stores a delay that was received, with the time it was received: the delay under [RetryAfterSeconds](../ResilienceMetadataKeys.md), and when the wait ends under [RetryAfterDate](../ResilienceMetadataKeys.md).
 
@@ -101,7 +101,7 @@ var error = ErrorBuilder.LimitExceeded(typeUri, "The rate limit was exceeded.")
 
 
 ## WithRetryAfter(ErrorBuilder, TimeSpan)
-Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/main/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorBuilderResilienceExtensions.cs#L87" target="_blank">ErrorBuilderResilienceExtensions.cs</a>
+Source: <a href="https://github.com/TomMaple/Maple.Result.Extensions.Resilience.Abstractions/blob/v3.0.0-rc.2/src/Maple.Result.Extensions.Resilience.Abstractions/ErrorBuilderResilienceExtensions.cs#L87" target="_blank">ErrorBuilderResilienceExtensions.cs</a>
 
 Stores the delay before the operation is retried, in whole seconds, under [RetryAfterSeconds](../ResilienceMetadataKeys.md), and removes the date of [RetryAfterDate](../ResilienceMetadataKeys.md).
 
